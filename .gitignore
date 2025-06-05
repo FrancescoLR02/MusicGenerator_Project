@@ -1,3 +1,7 @@
 clean_midi/
 Mono_CleanMidi/
 LogFolder/
+
+__pycache__/
+
+*.pkl
