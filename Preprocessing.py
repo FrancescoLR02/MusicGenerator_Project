@@ -81,7 +81,7 @@ def CleaningData():
    InputPath = os.path.realpath('clean_midi')
    os.makedirs('LogFolder', exist_ok=True)
    
-   for dir in tqdm(os.listdir(InputPath), desc='Cleaning Data '):
+   for dir in tqdm(os.listdir(InputPath), desc='Cleaning Data'):
 
       DirPath = os.path.join(InputPath, dir)
 
@@ -183,7 +183,7 @@ def RecreateDatabase():
    os.makedirs('Mono_CleanMidi', exist_ok=True)
    OutputPath = os.path.realpath('Mono_CleanMidi')
 
-   for dir in tqdm(os.listdir(InputPath), desc='Recreating Database '):
+   for dir in tqdm(os.listdir(InputPath), desc='Recreating Database'):
       DirPath = os.path.join(InputPath, dir)
 
       if not os.path.isdir(DirPath):
@@ -261,6 +261,26 @@ def InstrumentFamily(name):
    return name 
 
 
+#Maps the revious dataset into the new one with the 7 family
+def ReMap_Database(Dataset):
+   NormDataset = {}
+
+   for name, data in Dataset.items():
+      Family = InstrumentFamily(name)
+
+      if Family not in NormDataset:
+         NormDataset[Family] = {
+            'Bars': [], 
+            'Song': [],
+            'Tempo': []
+         }
+      NormDataset[Family]['Bars'].extend(data['Bars'])
+      NormDataset[Family]['Song'].extend(data['Song'])
+      NormDataset[Family]['Tempo'].extend(data['Tempo'])
+
+   return NormDataset
+
+
 
 
 def PreProcessing():
@@ -272,7 +292,7 @@ def PreProcessing():
    #Given a tempo, returns BPM
    Func_Tempo = lambda t: 60_000_000 / t
 
-   for dir in tqdm(os.listdir(InputPath), desc='Preprocessing '):
+   for dir in tqdm(os.listdir(InputPath), desc='Preprocessing'):
       DirPath = os.path.join(InputPath, dir)
 
       if not os.path.isdir(DirPath):
@@ -328,22 +348,7 @@ def PreProcessing():
       if len(Dataset[track]['Tempo']) < 20:
          del Dataset[track]
 
-   NormDataset = {}
-
-   for name, data in Dataset.items():
-      Family = InstrumentFamily(name)
-
-      if Family not in NormDataset:
-         NormDataset[Family] = {
-            'Bars': [], 
-            'Song': [],
-            'Tempo': []
-         }
-      NormDataset[Family]['Bars'].extend(data['Bars'])
-      NormDataset[Family]['Song'].extend(data['Song'])
-      NormDataset[Family]['Tempo'].extend(data['Tempo'])
-
+   NormDataset = ReMap_Database(Dataset)
    Dataset = NormDataset
-
 
    return Dataset
