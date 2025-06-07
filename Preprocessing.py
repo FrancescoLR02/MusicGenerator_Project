@@ -138,11 +138,11 @@ def ToMonphonic(track):
       if kind == 'on':
          if activeNote is None or note > activeNote:
             if activeNote is not None:
-               monoEvents.append(('off', activeNote, time))
+               monoEvents.append(('off', activeNote, time, velocity))
             activeNote = note
-            monoEvents.append(('on', note, time))
+            monoEvents.append(('on', note, time, velocity))
       elif kind == 'off' and note == activeNote:
-         monoEvents.append(('off', note, time))
+         monoEvents.append(('off', note, time, velocity))
          activeNote = None
 
 
