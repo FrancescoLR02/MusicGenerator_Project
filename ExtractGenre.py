@@ -251,4 +251,37 @@ def Clustering():
 
    return DatasetFeatures
 
+
+
+def GenrePrep(ClusteringDF, clusters):
+   path = os.path.realpath('Mono_CleanMidi')
+
+   GenrePreprocessing = {}
+
+   for cluster in np.unique(clusters):
+
+      Dataset = {}
+      
+      for song in tqdm(ClusteringDF[ClusteringDF['Cluster'] == cluster]['Song name']):
+
+         songPath = os.path.join(path, song)
+
+         mid = mido.MidiFile(songPath)
+
+                  #Function in Preprocessing.py
+         Dataset = ToGeneralInfo(mid, Dataset, song)
+
+      #Remove garbage tracks
+      for track in list(Dataset.keys()):
+         if len(Dataset[track]['Tempo']) < 20:
+            del Dataset[track]
+
+                  #Function in preprocessing.py
+      NormDataset = ReMap_Database(Dataset)
+      Dataset = NormDataset
+
+      GenrePreprocessing[cluster] = Dataset
+
+   return GenrePreprocessing
+
       

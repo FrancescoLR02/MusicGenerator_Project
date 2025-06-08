@@ -282,6 +282,47 @@ def ReMap_Database(Dataset):
 
 
 
+def ToGeneralInfo(mid, Dataset, file):
+
+   Func_Tempo = lambda t: 60_000_000 / t
+   TicksPerBeat = mid.ticks_per_beat
+
+   #defining the tempo of file (one for each)
+   if len(mid.tracks) > 0:
+      InitialTrack = mid.tracks[0]
+      for msg in InitialTrack:
+         if msg.type == 'set_tempo':
+
+            Tempo = Func_Tempo(msg.tempo)
+            break
+         else:
+            Tempo = 0
+
+   #Loop over all tracks (beside the first --> metadata)
+   for track in mid.tracks[1:]:
+      #set a minimum length of track (might me garbage)
+      if len(track) > 100: 
+
+         #Compute the (128x16) bars matrix for each track
+         Bars = ToBars(track, TicksPerBeat)
+
+         TrackName = track.name.lower()
+         #If there is not the track in the dataset, add it
+         if TrackName not in Dataset:               
+            Dataset[TrackName] = {
+               'Bars': [],
+               'Song': [],
+               'Tempo': []
+            }
+         
+         #and add the information to the Dataset dictionary
+         Dataset[TrackName]['Bars'].extend(Bars)
+         Dataset[TrackName]['Song'].append(f'{file[:-4]}')
+         Dataset[TrackName]['Tempo'].append(int(Tempo))
+
+   return Dataset
+
+
 
 def PreProcessing():
 
@@ -290,7 +331,7 @@ def PreProcessing():
    InputPath = os.path.relpath('Mono_CleanMidi')
    
    #Given a tempo, returns BPM
-   Func_Tempo = lambda t: 60_000_000 / t
+   
 
    for dir in tqdm(os.listdir(InputPath), desc='Preprocessing'):
       DirPath = os.path.join(InputPath, dir)
@@ -308,39 +349,7 @@ def PreProcessing():
          if mid is None:
             continue
 
-
-         TicksPerBeat = mid.ticks_per_beat
-
-         #defining the tempo of file (one for each)
-         if len(mid.tracks) > 0:
-            InitialTrack = mid.tracks[0]
-            for msg in InitialTrack:
-               if msg.type == 'set_tempo':
-
-                  Tempo = Func_Tempo(msg.tempo)
-                  break
-
-         #Loop over all tracks (beside the first --> metadata)
-         for track in mid.tracks[1:]:
-            #set a minimum length of track (might me garbage)
-            if len(track) > 100: 
-
-               #Compute the (128x16) bars matrix for each track
-               Bars = ToBars(track, TicksPerBeat)
-
-               TrackName = track.name.lower()
-               #If there is not the track in the dataset, add it
-               if TrackName not in Dataset:               
-                  Dataset[TrackName] = {
-                     'Bars': [],
-                     'Song': [],
-                     'Tempo': []
-                  }
-               
-               #and add the information to the Dataset dictionary
-               Dataset[TrackName]['Bars'].extend(Bars)
-               Dataset[TrackName]['Song'].append(f'{file[:-4]}')
-               Dataset[TrackName]['Tempo'].append(int(Tempo))
+         Dataset = ToGeneralInfo(mid, Dataset, file)
 
 
    #Remove garbage tracks
