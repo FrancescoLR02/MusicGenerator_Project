@@ -282,6 +282,11 @@ def GenrePrep(ClusteringDF, clusters):
 
       GenrePreprocessing[cluster] = Dataset
 
+   
+   for c in GenrePreprocessing.keys():
+      for track in GenrePreprocessing[c].keys():
+         GenrePreprocessing[c][track]['Bars'] = np.array(GenrePreprocessing[c][track]['Bars'])
+
    return GenrePreprocessing
 
       

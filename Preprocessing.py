@@ -359,4 +359,7 @@ def PreProcessing():
    NormDataset = ReMap_Database(Dataset)
    Dataset = NormDataset
 
+   for track in Dataset.keys():
+      Dataset[track]['Bars'] = np.array(Dataset[track]['Bars'])
+
    return Dataset
