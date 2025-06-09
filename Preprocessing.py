@@ -330,7 +330,6 @@ def PreProcessing():
 
    InputPath = os.path.relpath('Mono_CleanMidi')
    
-   #Given a tempo, returns BPM
    
 
    for dir in tqdm(os.listdir(InputPath), desc='Preprocessing'):
