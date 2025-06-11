@@ -1,6 +1,7 @@
 clean_midi/
 Mono_CleanMidi/
 LogFolder/
+CompleteMIDI/
 
 __pycache__/
 

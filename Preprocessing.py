@@ -7,7 +7,7 @@ from mido import MidiTrack, MetaMessage, Message
 import Util as Util
 
 
-LogFolder = os.path.realpath('LogFolder')
+#LogFolder = os.path.realpath('LogFolder')
 EmptyFolder = 'EmptyFolder.txt'
 CorruptedSongs = 'CorruptedSongs.txt'
 WrongTimeStamp = 'WrongTimeStamp.txt'
@@ -17,7 +17,7 @@ WrongTimeStamp = 'WrongTimeStamp.txt'
 
 #Checks if the folder in the dataset is empty or not given the path to the folder.
 #If empty write in a log file the name of the folder
-def Func_EmptyFolder(DirPath, dir):
+def Func_EmptyFolder(DirPath, dir, LogFolder = os.path.realpath('LogFolder')):
 
    FilesInFolder = sum(1 for entry in os.scandir(DirPath) if entry.is_file())
    if FilesInFolder == 0:
@@ -34,7 +34,7 @@ def Func_EmptyFolder(DirPath, dir):
 
 
 #Check if the file is corrupted (there a re just a few)
-def Func_CorruptedFile(FilePath, file, dir):
+def Func_CorruptedFile(FilePath, file, dir, LogFolder = os.path.realpath('LogFolder')):
 
    try :
       mid = mido.MidiFile(FilePath)
@@ -54,7 +54,7 @@ def Func_CorruptedFile(FilePath, file, dir):
 
 
 #Check the time signature of the file, for now considering only the one with 4/4
-def Func_CheckTimeStamp(FilePath, track, file, dir):
+def Func_CheckTimeStamp(FilePath, track, file, dir, LogFolder = os.path.realpath('LogFolder')):
       
    invalid = False
    WrongTimeStampPath = os.path.join(LogFolder, WrongTimeStamp)
@@ -76,10 +76,9 @@ def Func_CheckTimeStamp(FilePath, track, file, dir):
 
 
 #Apply the previous functions to clean the midi dataset
-def CleaningData():
+def CleaningData(InputPath = os.path.realpath('clean_midi'), LogFolder = os.path.realpath('LogFolder'), FolderName = 'LogFolder'):
 
-   InputPath = os.path.realpath('clean_midi')
-   os.makedirs('LogFolder', exist_ok=True)
+   os.makedirs(FolderName, exist_ok=True)
    
    for dir in tqdm(os.listdir(InputPath), desc='Cleaning Data'):
 
@@ -93,15 +92,15 @@ def CleaningData():
          FilePath = os.path.join(DirPath, file)
 
          
-         mid = Func_CorruptedFile(FilePath, file, dir) 
+         mid = Func_CorruptedFile(FilePath, file, dir, LogFolder) 
          if mid is None:
             continue
 
          #Check the timestamp (found in the first track as convention)
          InitTrack = mid.tracks[0]
-         Func_CheckTimeStamp(FilePath, InitTrack, file, dir)
+         Func_CheckTimeStamp(FilePath, InitTrack, file, dir, LogFolder)
 
-      Func_EmptyFolder(DirPath, dir)
+      Func_EmptyFolder(DirPath, dir, LogFolder)
 
 
 
