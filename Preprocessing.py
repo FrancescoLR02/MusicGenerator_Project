@@ -40,7 +40,7 @@ def Func_CorruptedFile(FilePath, file, dir, LogFolder = os.path.realpath('LogFol
       mid = mido.MidiFile(FilePath)
       return mid
 
-   except (OSError, ValueError, KeyError, KeySignatureError, EOFError) as e:
+   except (OSError, ValueError, KeyError, KeySignatureError, EOFError, IndexError) as e:
 
       CorruptedFilePath = os.path.join(LogFolder, CorruptedSongs)
       with open(CorruptedFilePath, 'a') as f:
@@ -80,7 +80,7 @@ def CleaningData(InputPath = os.path.realpath('clean_midi'), LogFolder = os.path
 
    os.makedirs(FolderName, exist_ok=True)
    
-   for dir in tqdm(os.listdir(InputPath), desc='Cleaning Data'):
+   for dir in tqdm(os.listdir(InputPath)):
 
       DirPath = os.path.join(InputPath, dir)
 
@@ -97,7 +97,10 @@ def CleaningData(InputPath = os.path.realpath('clean_midi'), LogFolder = os.path
             continue
 
          #Check the timestamp (found in the first track as convention)
-         InitTrack = mid.tracks[0]
+         try:
+            InitTrack = mid.tracks[0]
+         except:
+            continue
          Func_CheckTimeStamp(FilePath, InitTrack, file, dir, LogFolder)
 
       Func_EmptyFolder(DirPath, dir, LogFolder)

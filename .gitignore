@@ -2,6 +2,8 @@ clean_midi/
 Mono_CleanMidi/
 LogFolder/
 CompleteMIDI/
+lmd_matched_h5/
+SongID-Genre.cls
 
 __pycache__/
 

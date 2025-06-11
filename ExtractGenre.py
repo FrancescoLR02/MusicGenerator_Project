@@ -222,7 +222,7 @@ def Clustering():
    AllFolders = os.listdir(InputPath)
    Folders = np.random.choice(AllFolders, 2050, replace=False)
 
-   for dir in tqdm(Folders):
+   for dir in tqdm(AllFolders):
       DirPath = os.path.join(InputPath, dir)
 
       if not os.path.isdir(DirPath):
