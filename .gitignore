@@ -4,6 +4,11 @@ LogFolder/
 CompleteMIDI/
 lmd_matched_h5/
 SongID-Genre.cls
+FluidR3_GM/
+YAMF/
+GenreTrainDataset/
+CompleteLogFolder/
+*.h5
 
 __pycache__/
 
