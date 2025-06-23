@@ -7,12 +7,23 @@ import gc
 
 class DatasetTransform(Dataset):
 
-   def __init__(self, Instrument, Genre = False, Cluster = None):
+   def __init__(self, Instrument, Genre = False, Cluster = None, CNN = True):
       
+      #load the dataset with the genre recognition
       if Genre:
-         with open('GenreDataset.pkl', 'rb') as f:
-            GenreDataset = pickle.load(f)
-         self.Data = GenreDataset[Cluster][Instrument]['Bars'] 
+         #Genre recognition using CNN
+         if CNN:
+            with open('CNNGenreDataset.pkl', 'rb') as f:
+               GenreDataset = pickle.load(f)
+            self.Data = GenreDataset[Cluster][Instrument]['Bars'] 
+
+         #Genre recognition using the clustering algorithm
+         else:
+            with open('ClusterGenreDataset.pkl', 'rb') as f:
+               GenreDataset = pickle.load(f)
+            self.Data = GenreDataset[Cluster][Instrument]['Bars'] 
+
+      #Simple dataset (no genre recognition)
       else:
          with open('Dataset.pkl', 'rb') as f:
             DS = pickle.load(f)
@@ -29,9 +40,10 @@ class DatasetTransform(Dataset):
 
 
 
+######################### GENRE RECOGNITION USING CNN ###########################
 
-#Dataloader for Genre recognition:
 
+#Dataloader for CNN Genre recognition:
 class GenreDataset(Dataset):
    def __init__(self, path='YAMF/test.pkl', Train = True, transform=None):
 

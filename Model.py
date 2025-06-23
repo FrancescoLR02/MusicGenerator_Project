@@ -19,6 +19,7 @@ import torch.nn.functional as F
 
 #Model for genre recognition
 class GenreCNN(nn.Module):
+                        #Classify in 10 classes the genre 
     def __init__(self, n_classes=10):
         super().__init__()
         self.features = nn.Sequential(
@@ -32,22 +33,22 @@ class GenreCNN(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(2),
 
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
-            nn.BatchNorm2d(128),
+            nn.Conv2d(64, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.MaxPool2d(2),
         )
 
         self.classifier = nn.Sequential(
-            nn.AdaptiveAvgPool2d((4, 4)),  # Force 4×4 output
+            nn.AdaptiveAvgPool2d((4, 4)),  
             nn.Flatten(),
-            nn.Linear(4*4*128, 256),      # 4*4*128 = 2048
+            nn.Linear(4*4*64, 128),     
             nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(256, n_classes)
+            nn.Dropout(0.5),
+            nn.Linear(128, n_classes)
         )
 
     def forward(self, x):
         x = self.features(x)
-        x = self.classifier(x)  # AdaptiveAvgPool2d and Flatten are inside classifier
+        x = self.classifier(x)  
         return x
