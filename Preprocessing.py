@@ -181,6 +181,7 @@ def ToMonphonic(track):
 
 #Recreate the whole database with monophonic information
 def RecreateDatabase():
+
    InputPath = os.path.realpath('clean_midi')
    os.makedirs('Mono_CleanMidi', exist_ok=True)
    OutputPath = os.path.realpath('Mono_CleanMidi')
@@ -218,40 +219,44 @@ def RecreateDatabase():
 
 
 #Build the (128x16) beat matrix for each track
-def ToBars(track, TicksPerBeat):
+def ToBars(track, TicksPerBeat, length = 16):
 
    #since these tracks are all 4/4
    TicksPerBar = TicksPerBeat * 4
-   TicksPerSixteenth = TicksPerBar // 16
+   TicksPerSixteenth = TicksPerBar // length
 
    currTime = 0
    Note = []
 
    for msg in track:
       currTime += msg.time
-      if msg.type == 'note_one' and msg.velocity > 0:
+      if msg.type == 'note_on' and msg.velocity > 0:
          barNumber = currTime // TicksPerBar
          posInBar = (currTime % TicksPerBar) // TicksPerSixteenth
    
-         if posInBar < 16:
+         if posInBar < length:
             Note.append((barNumber, msg.note, posInBar))
 
    Bars = {}
    for barNum, note, pos in Note:
       if barNum not in Bars:
-         Bars[barNum] = np.zeros((128, 16), dtype = int)
+         Bars[barNum] = np.zeros((128, length), dtype = int)
 
       #Fill the matrix with the note at it's correct position
-      Bars[barNum][:, pos] = 0
       Bars[barNum][note, pos] = 1
 
-   maxBar = max(Bars.keys()) if Bars else 0
    barList = []
 
-   for i in range(maxBar + 1):
-      barList.append(Bars.get(i, np.zeros((128, 16), dtype = int)))
+   for barNum, matrix in Bars.items():
+      if len(np.where(np.ravel(matrix) != 0)[0]) >= 5:
+         barList.append(matrix)
 
-   return barList
+   #Keeping only 10 sequential random bars
+   if len(barList) > 10:
+      maxLen = len(barList)
+      rIdx = np.random.randint(0, maxLen-10)
+      FinalBarList = barList[rIdx:rIdx+10]
+      return FinalBarList
 
 
 #Maps every track into the instrument family (string, keybord, ...)
@@ -308,6 +313,9 @@ def ToGeneralInfo(mid, Dataset, file):
          #Compute the (128x16) bars matrix for each track
          Bars = ToBars(track, TicksPerBeat)
 
+         if Bars is None:
+            continue
+
          TrackName = track.name.lower()
          #If there is not the track in the dataset, add it
          if TrackName not in Dataset:               
@@ -319,29 +327,40 @@ def ToGeneralInfo(mid, Dataset, file):
          
          #and add the information to the Dataset dictionary
          Dataset[TrackName]['Bars'].extend(Bars)
-         Dataset[TrackName]['Song'].append(f'{file[:-4]}')
-         Dataset[TrackName]['Tempo'].append(int(Tempo))
+         Dataset[TrackName]['Song'].extend([f'{file[:-4]}']*len(Bars))
+         Dataset[TrackName]['Tempo'].extend([int(Tempo)] * len(Bars))
 
    return Dataset
 
 
 
-def PreProcessing():
+def PreProcessing(nDir = 300):
 
    Dataset = {}
 
    InputPath = os.path.relpath('Mono_CleanMidi')
-   
-   
 
-   for dir in tqdm(os.listdir(InputPath), desc='Preprocessing'):
+   #Selecting a random number of directory
+   all_dirs = [d for d in os.listdir(InputPath) if os.path.isdir(os.path.join(InputPath, d))]
+
+   random_dirs = np.random.choice(all_dirs, nDir)
+
+   for dir in tqdm(random_dirs, desc='Preprocessing'):
       DirPath = os.path.join(InputPath, dir)
 
       if not os.path.isdir(DirPath):
          continue
 
+      seensong = set()
       #Real all the file in each folder
       for file in os.listdir(DirPath):
+
+         #Check duplicate song
+         base_name = file.lower().replace('.mid', '').split('.')[0]
+         if base_name in seensong:
+            continue
+         seensong.add(base_name)
+
          FilePath = os.path.join(DirPath, file)
 
          #Cleaned monophonic: Some songs are corrupted:
@@ -363,5 +382,6 @@ def PreProcessing():
 
    for track in Dataset.keys():
       Dataset[track]['Bars'] = np.array(Dataset[track]['Bars'])
+
 
    return Dataset

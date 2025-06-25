@@ -13,7 +13,7 @@ class DatasetTransform(Dataset):
       if Genre:
          #Genre recognition using CNN
          if CNN:
-            with open('CNNGenreDataset.pkl', 'rb') as f:
+            with open('CNN_GenreDataset.pkl', 'rb') as f:
                GenreDataset = pickle.load(f)
             self.Data = GenreDataset[Cluster][Instrument]['Bars'] 
 
