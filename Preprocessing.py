@@ -2,6 +2,9 @@ import numpy as np
 import mido
 import os
 from tqdm import tqdm
+from scipy import sparse
+import torch
+
 from mido.midifiles.meta import KeySignatureError
 from mido import MidiTrack, MetaMessage, Message
 import Util as Util
@@ -135,33 +138,39 @@ def CleaningData(InputPath = os.path.realpath('clean_midi'), LogFolder = os.path
 #####PRE PROCESSING #####
 
 #Transorm a given track into monophonic
-def ToMonphonic(track):
-
+def ToMonophonic(track):
    absTime = 0
-   Events, Metadata = [], []
+   Events, Metadata, ProgramChange = [], [], []
+   channel = None
 
    for msg in track:
       absTime += msg.time
 
-      #Recreate metadata with absolute time from original midi file
       if msg.is_meta:
          Metadata.append((absTime, msg))
-      elif msg.type == 'note_on' and msg.velocity > 0:
-                        #time, note, velocity and kind
-         Events.append((absTime, msg.note, msg.velocity, 'on'))
-      elif msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0):
-         Events.append((absTime, msg.note, 0, 'off'))
 
-   #sort events prioritizing the ones with the higher notes
-   Events.sort(key = lambda x: (x[0], -x[1]))
+      elif msg.type == 'note_on' and msg.velocity > 0:
+         Events.append((absTime, msg.note, msg.velocity, 'on', msg.channel))
+         if channel is None:
+            channel = msg.channel
+
+      elif msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0):
+         Events.append((absTime, msg.note, 0, 'off', msg.channel))
+         if channel is None:
+               channel = msg.channel
+
+      elif msg.type == 'program_change':
+         ProgramChange.append((absTime, msg))
+         if channel is None:
+            channel = msg.channel
+
+   # sort note events: first by time, then by descending pitch
+   Events.sort(key=lambda x: (x[0], -x[1]))
 
    activeNote = None
    monoEvents = []
 
-   #Checks if there are multiple active notes (polyphonic)
-   #Ifthere are choose the one with the highest note 
-   #recreate the MidiMessage
-   for time, note, velocity, kind in Events:
+   for time, note, velocity, kind, _ in Events:
       if kind == 'on':
          if activeNote is None or note > activeNote:
             if activeNote is not None:
@@ -172,31 +181,35 @@ def ToMonphonic(track):
          monoEvents.append(('off', note, time, velocity))
          activeNote = None
 
-
-   #Rebuild the monophonic track
+   # Rebuild the monophonic track
    newTrack = MidiTrack()
    prevTime = 0
 
+   # Add metadata
    for absTime, msg in sorted(Metadata, key=lambda x: x[0]):
-      Delta = absTime - prevTime
-      #define a dictionary in which append all the information
+      delta = absTime - prevTime
       msgDict = msg.dict().copy()
-      #pop the information already presents 
       msgDict.pop('time', None)
       msgDict.pop('type', None)
-
-                                    #add the informations and unpack the dictionary
-      newTrack.append(MetaMessage(msg.type, time=Delta, **msgDict))
+      newTrack.append(MetaMessage(msg.type, time=delta, **msgDict))
       prevTime = absTime
 
-   #add Note Message 
-   for kind, note, absTime, velocity in monoEvents:
-      Delta = absTime - prevTime
-      if kind == 'on':                                   
-         newTrack.append(Message('note_on', note = note, velocity = velocity, time = Delta))
+   # Add program_change messages
+   for absTime, msg in sorted(ProgramChange, key=lambda x: x[0]):
+      delta = absTime - prevTime
+      msgDict = msg.dict().copy()
+      msgDict.pop('time', None)
+      msgDict.pop('type', None)
+      newTrack.append(Message('program_change', time=delta, **msgDict))
+      prevTime = absTime
 
+   # Add monophonic note events
+   for kind, note, absTime, velocity in monoEvents:
+      delta = absTime - prevTime
+      if kind == 'on':
+         newTrack.append(Message('note_on', note=note, velocity=velocity, time=delta, channel=channel))
       else:
-         newTrack.append(Message('note_off', note = note, velocity = velocity, time = Delta))
+         newTrack.append(Message('note_off', note=note, velocity=velocity, time=delta, channel=channel))
       prevTime = absTime
 
    return newTrack
@@ -232,7 +245,7 @@ def RecreateDatabase():
          for track in mid.tracks:
             
             try: 
-               MonoMidi = ToMonphonic(track)
+               MonoMidi = ToMonophonic(track)
                newMid.tracks.append(MonoMidi)
             except (KeyError) as e:
                continue
@@ -274,14 +287,16 @@ def ToBars(track, TicksPerBeat, length = 16):
 
    for barNum, matrix in Bars.items():
       if len(np.where(np.ravel(matrix) != 0)[0]) >= 5:
-         barList.append(matrix)
+         Tensor = torch.tensor(matrix, dtype=torch.int)
+         barList.append(Tensor.to_sparse())
 
    #Keeping only 10 sequential random bars
-   if len(barList) > 10:
-      maxLen = len(barList)
-      rIdx = np.random.randint(0, maxLen-10)
-      FinalBarList = barList[rIdx:rIdx+10]
-      return FinalBarList
+   # if len(barList) > 10:
+   #    maxLen = len(barList)
+   #    rIdx = np.random.randint(0, maxLen-10)
+   #    FinalBarList = barList[rIdx:rIdx+10]
+   
+   return barList
 
 
 #Maps every track into the instrument family (string, keybord, ...)
@@ -332,8 +347,16 @@ def ToGeneralInfo(mid, Dataset, file):
 
    #Loop over all tracks (beside the first --> metadata)
    for track in mid.tracks[1:]:
-      #set a minimum length of track (might me garbage)
-      if len(track) > 100: 
+      #Consider only the tracks that have an instrument in it (remove grabage)
+      HasProgramChange = any(msg.type == 'program_change' for msg in track)
+
+      if HasProgramChange:
+
+         Program = [msg.program for msg in track if msg.type == 'program_change'][0]
+         Channel = [msg.channel for msg in track if msg.type == 'program_change'][0]
+
+         if Program == 0:
+            continue
 
          #Compute the (128x16) bars matrix for each track
          Bars = ToBars(track, TicksPerBeat)
@@ -341,22 +364,23 @@ def ToGeneralInfo(mid, Dataset, file):
          if Bars is None:
             continue
 
-         TrackName = track.name.lower()
+         TrackName = f'{file[:-4]}'
          #If there is not the track in the dataset, add it
          if TrackName not in Dataset:               
             Dataset[TrackName] = {
                'Bars': [],
-               'Song': [],
-               'Tempo': []
+               'Tempo': [], 
+               'Program': [], 
+               'Channel': [] 
             }
          
          #and add the information to the Dataset dictionary
          Dataset[TrackName]['Bars'].extend(Bars)
-         Dataset[TrackName]['Song'].extend([f'{file[:-4]}']*len(Bars))
          Dataset[TrackName]['Tempo'].extend([int(Tempo)] * len(Bars))
+         Dataset[TrackName]['Program'].extend([Program] * len(Bars))
+         Dataset[TrackName]['Channel'].extend([Channel] * len(Bars))
 
    return Dataset
-
 
 
 def PreProcessing(nDir = 300):
@@ -389,17 +413,32 @@ def PreProcessing(nDir = 300):
 
          Dataset = ToGeneralInfo(mid, Dataset, file)
 
-
-   #Remove garbage tracks
-   for track in list(Dataset.keys()):
-      if len(Dataset[track]['Tempo']) < 20:
-         del Dataset[track]
-
-   NormDataset = ReMap_Database(Dataset)
-   Dataset = NormDataset
-
-   for track in Dataset.keys():
-      Dataset[track]['Bars'] = np.array(Dataset[track]['Bars'])
-
-
    return Dataset
+
+
+def RemappingDataset(Dataset):
+
+   MappedDataset = {}
+
+   for key in tqdm(Dataset, desc = 'Remapping: '):
+      value = Dataset[key]
+      
+      for i, prog in enumerate(value['Program']):
+
+         Instrument = Util.InstrumentFamily_Map[prog]
+
+         if Instrument not in MappedDataset:
+            MappedDataset[Instrument] = {
+               'Bars': [],
+               'Tempo': [],
+               'Program': [],
+               'Channel': []
+            }
+
+         MappedDataset[Instrument]['Bars'].extend(value['Bars'][i])
+         MappedDataset[Instrument]['Tempo'].append(value['Tempo'][i])
+         MappedDataset[Instrument]['Program'].append(prog)
+         MappedDataset[Instrument]['Channel'].append(value['Channel'][i])
+
+   return MappedDataset
+
