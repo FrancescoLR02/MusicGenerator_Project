@@ -21,7 +21,6 @@ from torch.optim import Adam
 from torch.nn import CrossEntropyLoss
 
 
-
 from Preprocessing import *
 from ExtractGenre import *
 from Model import *
@@ -296,7 +295,6 @@ def DiscriminateSongGenre(GenreDataset, InputPath = os.path.realpath('Mono_Clean
       for song, songGenre in tqdm(GenreDataset.items()):
 
          if songGenre[0] == genre:
-
 
             SongPath = os.path.join(InputPath, f'{song}.mid')
 

@@ -11,8 +11,33 @@ import Util as Util
 EmptyFolder = 'EmptyFolder.txt'
 CorruptedSongs = 'CorruptedSongs.txt'
 WrongTimeStamp = 'WrongTimeStamp.txt'
+DuplicatedFiles = 'DuplicatedFiles.txt'
 
 ######CLEANING OF THE DATA#####
+
+def DeleteDuplicates(InputPath = os.path.realpath('clean_midi'), LogFolder = os.path.realpath('LogFolder')):
+
+   DupFilePath = os.path.join(LogFolder, DuplicatedFiles)
+
+   for dir in tqdm(os.listdir(InputPath), desc='Deleting Duplicates:'):
+      DirPath = os.path.join(InputPath, dir)
+
+      #to avoid .Ds_Store to be read
+      if not os.path.isdir(DirPath):
+         continue
+
+      SeenSong = set()
+      for file in os.listdir(DirPath):
+         FilePath = os.path.join(DirPath, file)
+
+         base_name = file.lower().replace('.mid', '').split('.')[0]
+         if base_name in SeenSong:
+            with open(DupFilePath, 'a') as f:
+               f.write(f'{dir}\{file}\n')
+            os.remove(FilePath)
+         SeenSong.add(base_name)
+
+
 
 
 #Checks if the folder in the dataset is empty or not given the path to the folder.
@@ -165,13 +190,13 @@ def ToMonphonic(track):
       prevTime = absTime
 
    #add Note Message 
-   for kind, note, absTime in monoEvents:
+   for kind, note, absTime, velocity in monoEvents:
       Delta = absTime - prevTime
-      if kind == 'on':                                   #Flatten the velocity to 64 (can do better)
-         newTrack.append(Message('note_on', note = note, velocity = 64, time = Delta))
+      if kind == 'on':                                   
+         newTrack.append(Message('note_on', note = note, velocity = velocity, time = Delta))
 
       else:
-         newTrack.append(Message('note_off', note = note, velocity = 64, time = Delta))
+         newTrack.append(Message('note_off', note = note, velocity = velocity, time = Delta))
       prevTime = absTime
 
    return newTrack
@@ -351,15 +376,8 @@ def PreProcessing(nDir = 300):
       if not os.path.isdir(DirPath):
          continue
 
-      seensong = set()
       #Real all the file in each folder
       for file in os.listdir(DirPath):
-
-         #Check duplicate song
-         base_name = file.lower().replace('.mid', '').split('.')[0]
-         if base_name in seensong:
-            continue
-         seensong.add(base_name)
 
          FilePath = os.path.join(DirPath, file)
 
