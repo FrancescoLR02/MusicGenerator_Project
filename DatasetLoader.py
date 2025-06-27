@@ -18,17 +18,20 @@ class DatasetTransform(Dataset):
 
       #Simple dataset (no genre recognition)
       else:
-         with open('Dataset.pkl', 'rb') as f:
-            DS = pickle.load(f)
+         DS = torch.load('Dataset.pt')
          self.Data = DS[Instrument]['Bars']  
+
+         del DS
+         gc.collect()
       
    def __len__(self):
       return len(self.Data)
 
    def __getitem__(self, idx):
       Sample = self.Data[idx]
-      Sample = torch.tensor(Sample, dtype=torch.float32)
-      return Sample
+      dense_array = Sample.toarray().astype('int')  # convert to dense NumPy array
+      tensor = torch.from_numpy(dense_array)
+      return tensor
    
 
 

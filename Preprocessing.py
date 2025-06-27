@@ -413,11 +413,6 @@ def PreProcessing(nDir = 300):
 
          Dataset = ToGeneralInfo(mid, Dataset, file)
 
-   return Dataset
-
-
-def RemappingDataset(Dataset):
-
    MappedDataset = {}
 
    for key in tqdm(Dataset, desc = 'Remapping: '):
@@ -435,10 +430,9 @@ def RemappingDataset(Dataset):
                'Channel': []
             }
 
-         MappedDataset[Instrument]['Bars'].extend(value['Bars'][i])
+         MappedDataset[Instrument]['Bars'].append(value['Bars'][i])
          MappedDataset[Instrument]['Tempo'].append(value['Tempo'][i])
          MappedDataset[Instrument]['Program'].append(prog)
          MappedDataset[Instrument]['Channel'].append(value['Channel'][i])
 
    return MappedDataset
-

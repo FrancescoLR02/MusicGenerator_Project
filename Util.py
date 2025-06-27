@@ -323,3 +323,26 @@ InstrumentFamily_Map.update({k: 'Ethnic' for k in list(GM_INSTRUMENTS.keys())[10
 InstrumentFamily_Map.update({k: 'Percussive' for k in list(GM_INSTRUMENTS.keys())[112:120]})
 InstrumentFamily_Map.update({k: 'Sound Effects' for k in list(GM_INSTRUMENTS.keys())[120:128]})
 InstrumentFamily_Map.update({k: 'Percussion' for k in list(GM_PERCUSSION.keys())})
+
+
+#MPAS THE INSTRUMENT INTO ONE FOR EACH CATEGOTY 
+InstrumentMap = {}
+InstrumentMap.update({k: 0 for k in list(GM_INSTRUMENTS.keys())[0:8]})
+InstrumentMap.update({k: 8 for k in list(GM_INSTRUMENTS.keys())[8:16]})
+InstrumentMap.update({k: 16 for k in list(GM_INSTRUMENTS.keys())[16:24]})
+InstrumentMap.update({k: 24 for k in list(GM_INSTRUMENTS.keys())[24:32]})
+InstrumentMap.update({k: 32 for k in list(GM_INSTRUMENTS.keys())[32:40]})
+InstrumentMap.update({k: 40 for k in list(GM_INSTRUMENTS.keys())[40:48]})
+InstrumentMap.update({k: 48 for k in list(GM_INSTRUMENTS.keys())[48:56]})
+InstrumentMap.update({k: 56 for k in list(GM_INSTRUMENTS.keys())[56:64]})
+InstrumentMap.update({k: 64 for k in list(GM_INSTRUMENTS.keys())[64:72]})
+InstrumentMap.update({k: 72 for k in list(GM_INSTRUMENTS.keys())[72:80]})
+InstrumentMap.update({k: 80 for k in list(GM_INSTRUMENTS.keys())[80:88]})
+InstrumentMap.update({k: 88 for k in list(GM_INSTRUMENTS.keys())[88:96]})
+InstrumentMap.update({k: 96 for k in list(GM_INSTRUMENTS.keys())[96:104]})
+InstrumentMap.update({k: 104 for k in list(GM_INSTRUMENTS.keys())[104:112]})
+InstrumentMap.update({k: 112 for k in list(GM_INSTRUMENTS.keys())[112:120]})
+InstrumentMap.update({k: 120 for k in list(GM_INSTRUMENTS.keys())[120:128]})
+
+#REMEMBER, PROGRAM 180 DOESN'T EXIST, IF IT HAPPEN IT HAS TO BE MAPPED TO CHANNEL 10 AND PROGRAM 35
+InstrumentMap.update({k: 180 for k in list(GM_PERCUSSION.keys())})

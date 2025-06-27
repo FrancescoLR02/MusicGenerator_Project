@@ -13,3 +13,4 @@ CompleteLogFolder/
 __pycache__/
 
 *.pkl
+*.pt
