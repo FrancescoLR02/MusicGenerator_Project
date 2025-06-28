@@ -343,42 +343,54 @@ def ToGeneralInfo(mid, Dataset, file):
             Tempo = Func_Tempo(msg.tempo)
             break
          else:
-            Tempo = 0
+            Tempo = 120
 
    #Loop over all tracks (beside the first --> metadata)
    for track in mid.tracks[1:]:
       #Consider only the tracks that have an instrument in it (remove grabage)
       HasProgramChange = any(msg.type == 'program_change' for msg in track)
+      TrackName = f'{file[:-4]}'
 
       if HasProgramChange:
 
          Program = [msg.program for msg in track if msg.type == 'program_change'][0]
          Channel = [msg.channel for msg in track if msg.type == 'program_change'][0]
 
-         if Program == 0:
+         if Program == 0 or Channel == 10:
             continue
 
          #Compute the (128x16) bars matrix for each track
          Bars = ToBars(track, TicksPerBeat)
 
-         if Bars is None:
+         if Bars is None or len(Bars) < 2:
             continue
 
-         TrackName = f'{file[:-4]}'
+         #Counts the number of pair of bars
+         numPair = [(i, i+1) for i in range(0, len(Bars)//2 - 1, 2)]
+         BarsPair = [(Bars[i], Bars[i+1]) for i in range(0, len(Bars)//2 - 1, 2)]
+
+
          #If there is not the track in the dataset, add it
          if TrackName not in Dataset:               
             Dataset[TrackName] = {
                'Bars': [],
                'Tempo': [], 
                'Program': [], 
-               'Channel': [] 
+               'Channel': [], 
+               'SongName': [],
+               'numBar': [] 
             }
+
+         #Maps the program into one instrument of the same category
+         NewProgram = Util.InstrumentMap[Program]
          
          #and add the information to the Dataset dictionary
-         Dataset[TrackName]['Bars'].extend(Bars)
-         Dataset[TrackName]['Tempo'].extend([int(Tempo)] * len(Bars))
-         Dataset[TrackName]['Program'].extend([Program] * len(Bars))
-         Dataset[TrackName]['Channel'].extend([Channel] * len(Bars))
+         Dataset[TrackName]['Bars'].extend(BarsPair)
+         Dataset[TrackName]['Tempo'].extend([(int(Tempo), int(Tempo)) for _ in range(0, len(Bars)//2-1, 2)])
+         Dataset[TrackName]['Program'].extend([(NewProgram, NewProgram) for _ in range(0, len(Bars)//2-1, 2)])
+         Dataset[TrackName]['Channel'].extend([(Channel, Channel) for _ in range(0, len(Bars)//2-1, 2)])
+         Dataset[TrackName]['SongName'].extend([(f'{TrackName}', f'{TrackName}') for _ in range(0, len(Bars)//2-1, 2)])
+         Dataset[TrackName]['numBar'].extend(numPair)
 
    return Dataset
 
@@ -413,26 +425,30 @@ def PreProcessing(nDir = 300):
 
          Dataset = ToGeneralInfo(mid, Dataset, file)
 
+   
    MappedDataset = {}
-
-   for key in tqdm(Dataset, desc = 'Remapping: '):
+   for key in Dataset:
       value = Dataset[key]
       
       for i, prog in enumerate(value['Program']):
 
-         Instrument = Util.InstrumentFamily_Map[prog]
+         Instrument = Util.InstrumentFamily_Map[prog[0]]
 
          if Instrument not in MappedDataset:
             MappedDataset[Instrument] = {
                'Bars': [],
                'Tempo': [],
                'Program': [],
-               'Channel': []
+               'Channel': [],
+               'SongName': [],
+               'numBar': []
             }
 
          MappedDataset[Instrument]['Bars'].append(value['Bars'][i])
          MappedDataset[Instrument]['Tempo'].append(value['Tempo'][i])
-         MappedDataset[Instrument]['Program'].append(prog)
+         MappedDataset[Instrument]['Program'].append(prog[0])
          MappedDataset[Instrument]['Channel'].append(value['Channel'][i])
+         MappedDataset[Instrument]['SongName'].append(value['SongName'][i])
+         MappedDataset[Instrument]['numBar'].append(value['numBar'][i])
 
    return MappedDataset

@@ -19,7 +19,7 @@ class DatasetTransform(Dataset):
       #Simple dataset (no genre recognition)
       else:
          DS = torch.load('Dataset.pt')
-         self.Data = DS[Instrument]['Bars']  
+         self.Data = DS[Instrument]['Bars']
 
          del DS
          gc.collect()
@@ -29,9 +29,8 @@ class DatasetTransform(Dataset):
 
    def __getitem__(self, idx):
       Sample = self.Data[idx]
-      dense_array = Sample.toarray().astype('int')  # convert to dense NumPy array
-      tensor = torch.from_numpy(dense_array)
-      return tensor
+      Tensor = (Sample[0].to_dense(), Sample[1].to_dense())
+      return Tensor
    
 
 
