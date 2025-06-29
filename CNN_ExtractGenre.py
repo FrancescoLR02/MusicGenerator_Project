@@ -22,7 +22,7 @@ from torch.nn import CrossEntropyLoss
 
 
 from Preprocessing import *
-from ExtractGenre import *
+#from ExtractGenre import *
 from Model import *
 
 import DatasetLoader as DL

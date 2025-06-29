@@ -286,7 +286,7 @@ def ToBars(track, TicksPerBeat, length = 16):
    barList = []
 
    for barNum, matrix in Bars.items():
-      if len(np.where(np.ravel(matrix) != 0)[0]) >= 5:
+      #if len(np.where(np.ravel(matrix) != 0)[0]) >= 5:
          Tensor = torch.tensor(matrix, dtype=torch.int)
          barList.append(Tensor.to_sparse())
 
