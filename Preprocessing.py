@@ -4,6 +4,8 @@ import os
 from tqdm import tqdm
 from scipy import sparse
 import torch
+from collections import defaultdict
+
 
 from mido.midifiles.meta import KeySignatureError
 from mido import MidiTrack, MetaMessage, Message
@@ -297,36 +299,6 @@ def ToBars(track, TicksPerBeat, Velocity, length = 16):
    return barList
 
 
-#Maps every track into the instrument family (string, keybord, ...)
-def InstrumentFamily(name):
-   name = name.lower()
-   for standard, aliases in Util.InstrumentFamily_map.items():
-      if any(alias in name for alias in aliases):
-         return standard
-   return name 
-
-
-#Maps the revious dataset into the new one with the 7 family
-def ReMap_Database(Dataset):
-   NormDataset = {}
-
-   for name, data in Dataset.items():
-      Family = InstrumentFamily(name)
-
-      if Family not in NormDataset:
-         NormDataset[Family] = {
-            'Bars': [], 
-            'Song': [],
-            'Tempo': []
-         }
-      NormDataset[Family]['Bars'].extend(data['Bars'])
-      NormDataset[Family]['Song'].extend(data['Song'])
-      NormDataset[Family]['Tempo'].extend(data['Tempo'])
-
-   return NormDataset
-
-
-
 def ToGeneralInfo(mid, Dataset, file, Velocity):
 
    Func_Tempo = lambda t: 60_000_000 / t
@@ -450,3 +422,58 @@ def PreProcessing(nDir = 300, Velocity = False):
          MappedDataset[Instrument]['numBar'].append(value['numBar'][i])
 
    return MappedDataset
+
+
+
+
+
+
+#from the matrix trasnform back into midi file!
+def MonoBarsToMIDI(Bars, Velocity = False, title = 'reconstructed', Instrument = None):
+
+   mid = mido.MidiFile()
+   track = mido.MidiTrack()
+   mid.tracks.append(track)
+
+   # Assuming 4/4 time signature and 120BPM (we don't have BPM information, assuming the best one)
+   track.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(100)))  # Example: 120 BPM
+   track.append(mido.MetaMessage('time_signature', numerator=4, denominator=4))
+
+
+   if Instrument is not None:
+      #Reversing the original mapping to retrieve one of the program mapped in Util
+      FamilyToInstruments = defaultdict(list)
+      for instrument_num, family_name in Util.InstrumentFamily_Map.items():
+         FamilyToInstruments[family_name].append(instrument_num)
+
+      #Retrieve randomly one of the instrument of the cathegory
+      #Program = np.random.choice(FamilyToInstruments[Instrument])
+      Program = FamilyToInstruments[Instrument][0]
+   
+   else:
+      #If no program is given one randomly is drawn
+      Program = np.random.choice(np.arange(1, 129))
+
+
+   #If the dataset has the velocity information
+   if Velocity:                                   #Only 1 channel (1 instrument)
+      track.append(mido.Message('program_change', channel = 1, program=Program))
+      # Add note events
+      for t in range(np.shape(Bars)[1]):
+         for note in range(128):
+            if Bars[note, t] != 0:                
+               track.append(mido.Message('note_on', note=note, velocity=Bars[note, t], time=0, channel = 1))  
+               track.append(mido.Message('note_off', note=note, velocity=0, time=120, channel = 1)) 
+         
+   else:
+      # Add note events
+      track.append(mido.Message('program_change', channel = 1, program=Program))
+      for t in range(np.shape(Bars)[1]):
+         for note in range(128):
+            if Bars[note, t] == 1:                          #Only 1 channel (1 instrument)
+               track.append(mido.Message('note_on', note=note, velocity=90, time=0, channel=1))  
+               track.append(mido.Message('note_off', note=note, velocity=0, time=120, channel=1)) 
+
+
+   mid.save(f'{title}.mid')
+
