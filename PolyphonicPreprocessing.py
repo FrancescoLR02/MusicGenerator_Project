@@ -5,6 +5,8 @@ from tqdm import tqdm
 from scipy import sparse
 import torch
 import pickle
+import gc
+
 
 import Util as Util
 from Preprocessing import *
@@ -32,7 +34,7 @@ def AddZeros(Lists):
 
 
 #Extract all the bars from each track 
-def ToPolyphonicBars(track, TicksPerBeat, length = 16):
+def ToPolyphonicBars(track, TicksPerBeat, Velocity, length = 16):
 
    #since these tracks are all 4/4
    TicksPerBar = TicksPerBeat * 4
@@ -48,17 +50,20 @@ def ToPolyphonicBars(track, TicksPerBeat, length = 16):
          posInBar = (currTime % TicksPerBar) // TicksPerSixteenth
    
          if posInBar < length:
-            Note.append((barNumber, msg.note, posInBar))
+            Note.append((barNumber, msg.note, posInBar, msg.velocity))
 
    Bars = {}
    barNumRecord = []
-   for barNum, note, pos in Note:
+   for barNum, note, pos, vel in Note:
       if barNum not in Bars:
          Bars[barNum] = np.zeros((128, length), dtype = int)
          barNumRecord.append(barNum+1)
 
       #Fill the matrix with the note at it's correct position
-      Bars[barNum][note, pos] = 1
+      if Velocity:
+         Bars[barNum][note, pos] = vel
+      else:
+         Bars[barNum][note, pos] = 1
 
    barList = []
 
@@ -70,7 +75,7 @@ def ToPolyphonicBars(track, TicksPerBeat, length = 16):
 
 
 #From all the track (maximum 4) of a given song build the (4x128x16) tensor 
-def ToPolyphonicGeneralInfo(mid, Dataset, file, dir, HowManyInstruments = 4):
+def ToPolyphonicGeneralInfo(mid, Dataset, file, dir, Velocity,  HowManyInstruments = 4, Debug = False):
 
    Func_Tempo = lambda t: 60_000_000 / t
    TicksPerBeat = mid.ticks_per_beat
@@ -105,7 +110,7 @@ def ToPolyphonicGeneralInfo(mid, Dataset, file, dir, HowManyInstruments = 4):
             continue
 
          #Compute the (128x16) bars matrix for each track
-         BarsRecord, Bars = ToPolyphonicBars(track, TicksPerBeat)
+         BarsRecord, Bars = ToPolyphonicBars(track, TicksPerBeat, Velocity)
 
          if Bars is None or len(Bars) <4:
             continue
@@ -174,6 +179,7 @@ def ToPolyphonicGeneralInfo(mid, Dataset, file, dir, HowManyInstruments = 4):
    numPair = [(i, i+1) for i in range(0, Dim - 1, 2)]
    BarsPair = [(PolyphonicDataset[i], PolyphonicDataset[i+1]) for i in range(0, Dim - 1, 2)]
    ActiveProgram = [(FullActiveBars[i], FullActiveBars[i+1]) for i in range(0, Dim - 1, 2)]
+   FullProgramList = [(ProgramList, ProgramList) for _ in range(0, Dim - 1, 2)]
 
 
    #If there is not the track in the dataset, add it
@@ -192,16 +198,20 @@ def ToPolyphonicGeneralInfo(mid, Dataset, file, dir, HowManyInstruments = 4):
    #and add the information to the Dataset dictionary
    Dataset[TrackName]['SongName'].extend([(f'{TrackName}', f'{TrackName}') for _ in range(0, Dim - 1, 2)])
    Dataset[TrackName]['Bars'].extend(BarsPair)
-   Dataset[TrackName]['Program'].extend((ProgramList, ProgramList))
+   Dataset[TrackName]['Program'].extend(FullProgramList)
    Dataset[TrackName]['ActiveProgram'].extend(ActiveProgram)
    Dataset[TrackName]['numBar'].extend(numPair)
    Dataset[TrackName]['Tempo'].extend([(int(Tempo), int(Tempo)) for _ in range(0, Dim - 1, 2)])
+
+   if Debug:
+      del Bars
+      gc.collect()
 
    return Dataset
 
 
 #After having created the dataset, cathegorize the songs in the corresponding genre
-def PolyphonicPreProcessing(nDir = 300):
+def PolyphonicPreProcessing(nDir = 300, Velocity=False):
 
    Dataset = {}
 
@@ -229,7 +239,7 @@ def PolyphonicPreProcessing(nDir = 300):
          if mid is None:
             continue
 
-         Dataset = ToPolyphonicGeneralInfo(mid, Dataset, file, dir)
+         Dataset = ToPolyphonicGeneralInfo(mid, Dataset, file, dir, Velocity)
 
 
    #Load the file that maps each song in the corresponding genre

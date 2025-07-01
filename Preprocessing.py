@@ -257,7 +257,7 @@ def RecreateDatabase():
 
 
 #Build the (128x16) beat matrix for each track
-def ToBars(track, TicksPerBeat, length = 16):
+def ToBars(track, TicksPerBeat, Velocity, length = 16):
 
    #since these tracks are all 4/4
    TicksPerBar = TicksPerBeat * 4
@@ -273,15 +273,19 @@ def ToBars(track, TicksPerBeat, length = 16):
          posInBar = (currTime % TicksPerBar) // TicksPerSixteenth
    
          if posInBar < length:
-            Note.append((barNumber, msg.note, posInBar))
+            Note.append((barNumber, msg.note, posInBar, msg.velocity))
 
    Bars = {}
-   for barNum, note, pos in Note:
+   for barNum, note, pos, vel in Note:
       if barNum not in Bars:
          Bars[barNum] = np.zeros((128, length), dtype = int)
 
       #Fill the matrix with the note at it's correct position
-      Bars[barNum][note, pos] = 1
+      if Velocity:
+         Bars[barNum][note, pos] = vel
+      else:
+         Bars[barNum][note, pos] = 1
+
 
    barList = []
 
@@ -289,12 +293,6 @@ def ToBars(track, TicksPerBeat, length = 16):
       #if len(np.where(np.ravel(matrix) != 0)[0]) >= 5:
          Tensor = torch.tensor(matrix, dtype=torch.int)
          barList.append(Tensor.to_sparse())
-
-   #Keeping only 10 sequential random bars
-   # if len(barList) > 10:
-   #    maxLen = len(barList)
-   #    rIdx = np.random.randint(0, maxLen-10)
-   #    FinalBarList = barList[rIdx:rIdx+10]
    
    return barList
 
@@ -329,7 +327,7 @@ def ReMap_Database(Dataset):
 
 
 
-def ToGeneralInfo(mid, Dataset, file):
+def ToGeneralInfo(mid, Dataset, file, Velocity):
 
    Func_Tempo = lambda t: 60_000_000 / t
    TicksPerBeat = mid.ticks_per_beat
@@ -360,7 +358,7 @@ def ToGeneralInfo(mid, Dataset, file):
             continue
 
          #Compute the (128x16) bars matrix for each track
-         Bars = ToBars(track, TicksPerBeat)
+         Bars = ToBars(track, TicksPerBeat, Velocity)
 
          if Bars is None or len(Bars) < 2:
             continue
@@ -395,7 +393,7 @@ def ToGeneralInfo(mid, Dataset, file):
    return Dataset
 
 
-def PreProcessing(nDir = 300):
+def PreProcessing(nDir = 300, Velocity = False):
 
    Dataset = {}
 
@@ -423,7 +421,7 @@ def PreProcessing(nDir = 300):
          if mid is None:
             continue
 
-         Dataset = ToGeneralInfo(mid, Dataset, file)
+         Dataset = ToGeneralInfo(mid, Dataset, file, Velocity)
 
    
    MappedDataset = {}

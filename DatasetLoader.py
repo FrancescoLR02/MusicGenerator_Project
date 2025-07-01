@@ -5,24 +5,26 @@ import numpy as np
 import gc
 
 
-class DatasetTransform(Dataset):
+#Loading monophonic and polyphonic classes
 
-   def __init__(self, Instrument, Genre = False, GenreID = None):
+class MonophonicDataset(Dataset):
+
+   def __init__(self, Instrument, Velocity = False):
       
-      #load the dataset with the genre recognition
-      if Genre:
-         #Genre recognition using CNN
-         with open('CNN_GenreDataset.pkl', 'rb') as f:
-            GenreDataset = pickle.load(f)
-         self.Data = GenreDataset[GenreID][Instrument]['Bars'] 
+      if Velocity:
+         DS = torch.load('DatasetVelocity.pt')
+         self.Data = DS[Instrument]['Bars']
 
-      #Simple dataset (no genre recognition)
+         del DS
+         gc.collect()
+
       else:
          DS = torch.load('Dataset.pt')
          self.Data = DS[Instrument]['Bars']
 
          del DS
          gc.collect()
+
       
    def __len__(self):
       return len(self.Data)
@@ -33,6 +35,31 @@ class DatasetTransform(Dataset):
       return Tensor
    
 
+
+class PolyphonicDataset(Dataset):
+
+   def __init__(self, Genre):
+      
+         DS = torch.load('PolyphonicDataset.pt', weights_only=False)
+         self.Data = DS[Genre]
+
+         del DS
+         gc.collect()
+      
+   def __len__(self):
+      return len(self.Data['Program'])
+
+   def __getitem__(self, idx):
+      Bars = self.Data['Bars'][idx]
+      Program = self.Data['Program'][idx]
+      ActiveProgram = self.Data['ActiveProgram'][idx]
+
+      return {
+        'Bars': (Bars[0].to_dense(), Bars[1].to_dense()),
+        'Program': torch.tensor(Program),
+        'Active': torch.tensor(ActiveProgram)
+      }
+   
 
 
 ######################### GENRE RECOGNITION USING CNN ###########################
