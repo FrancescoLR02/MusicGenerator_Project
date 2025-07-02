@@ -5,22 +5,24 @@ import numpy as np
 import gc
 
 
-#Loading monophonic and polyphonic classes
+def collate_fn(batch):
+   return batch
 
+#Loading monophonic and polyphonic classes
 class MonophonicDataset(Dataset):
 
    def __init__(self, Instrument, Velocity = False):
       
       if Velocity:
          DS = torch.load('DatasetVelocity.pt')
-         self.Data = DS[Instrument]['Bars']
+         self.Data = DS[Instrument]
 
          del DS
          gc.collect()
 
       else:
          DS = torch.load('Dataset.pt')
-         self.Data = DS[Instrument]['Bars']
+         self.Data = DS[Instrument]
 
          del DS
          gc.collect()
@@ -31,8 +33,7 @@ class MonophonicDataset(Dataset):
 
    def __getitem__(self, idx):
       Sample = self.Data[idx]
-      Tensor = (Sample[0].to_dense(), Sample[1].to_dense())
-      return Tensor
+      return Sample
    
 
 
@@ -47,18 +48,11 @@ class PolyphonicDataset(Dataset):
          gc.collect()
       
    def __len__(self):
-      return len(self.Data['Program'])
+      return len(self.Data)
 
    def __getitem__(self, idx):
-      Bars = self.Data['Bars'][idx]
-      Program = self.Data['Program'][idx]
-      ActiveProgram = self.Data['ActiveProgram'][idx]
-
-      return {
-        'Bars': (Bars[0].to_dense(), Bars[1].to_dense()),
-        'Program': torch.tensor(Program),
-        'Active': torch.tensor(ActiveProgram)
-      }
+      Sample = self.Data[idx]
+      return Sample
    
 
 

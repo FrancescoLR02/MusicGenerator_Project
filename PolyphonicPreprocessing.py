@@ -279,4 +279,88 @@ def PolyphonicPreProcessing(nDir = 300, Velocity=False):
       MappedDataset[GenreMapping[Genre]]['numBar'].extend(value['numBar'])
       MappedDataset[GenreMapping[Genre]]['Tempo'].extend(value['Tempo'])
 
-   return MappedDataset
+
+   FinalDict = {}
+   for key in MappedDataset.keys():
+      SN = MappedDataset[key]['SongName']
+      Bars = MappedDataset[key]['Bars']
+      Prog = MappedDataset[key]['Program']
+      AP = MappedDataset[key]['ActiveProgram']
+      nB = MappedDataset[key]['numBar']
+      T = MappedDataset[key]['Tempo']
+
+
+      list = []
+      for i in range(len(SN)):
+         dict = {
+            'SongName': SN[i],
+            'Bars': Bars[i],
+            'Program': Prog[i],
+            'AP': AP[i],
+            'numBar': nB[i],
+            'Tempo': T[i]
+         }
+         list.append(dict)
+
+      FinalDict[key] = list
+
+      for key in tqdm(FinalDict.keys()):
+         for i in range(len(FinalDict[key])):
+            if torch.sum(FinalDict[key][i]['Bars'][0]) == 0 or torch.sum(FinalDict[key][i]['Bars'][1]) == 0:
+               del FinalDict[key][i]
+
+   return FinalDict
+
+
+
+
+#From Nx128x16 matrix to midi file
+def PolyBarsToMIDI(Bars, Velocity=False, title='reconstructed', Instrument=None):
+    
+   mid = mido.MidiFile()
+   ticks_per_beat = 480 
+   deltaT = ticks_per_beat // 4  
+
+   HowManyInstruments = np.shape(Bars)[0]
+   
+
+   for j in range(HowManyInstruments):
+      track = mido.MidiTrack()
+      mid.tracks.append(track)
+      
+      #Metadata
+      track.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(np.random.randint(80, 140)), time=0))
+      track.append(mido.MetaMessage('time_signature', numerator=4, denominator=4, time=0))
+      track.append(mido.Message('program_change', channel=j, program=Instrument[j], time=0))
+
+      CurrTime = 0
+        
+      for t in range(np.shape(Bars)[2]):
+         #All notes in step "note"
+         NotesForStep = []
+         for note in range(128):
+            if Bars[j, note, t] != 0:
+               NotesForStep.append(note)
+         
+         # Add all note-ons for this time step (simultaneous)
+         if NotesForStep:
+            for i, note in enumerate(NotesForStep):
+               # First note has delta time, others have 0 (same time)
+               DeltaT = CurrTime if i == 0 else 0
+               if Velocity:
+                  track.append(mido.Message('note_on', note=note, velocity=Bars[j, note, t], time=DeltaT, channel=j))
+               else:
+                  track.append(mido.Message('note_on', note=note, velocity=90, time=DeltaT, channel=j))
+               CurrTime = 0  # Reset after first note
+               
+               # Add all note-offs after deltaT ticks
+               for i, note in enumerate(NotesForStep):
+                  DeltaT = deltaT if i == 0 else 0
+                  track.append(mido.Message('note_off', note=note, velocity=0, time=DeltaT, channel=j))
+                  CurrTime = 0 
+         else:
+            CurrTime += deltaT
+
+      track.append(mido.MetaMessage('end_of_track', time=0))
+
+   mid.save(f'{title}.mid')

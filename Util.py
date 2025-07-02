@@ -325,7 +325,7 @@ InstrumentFamily_Map.update({k: 'Sound Effects' for k in list(GM_INSTRUMENTS.key
 #InstrumentFamily_Map.update({k: 'Percussion' for k in list(GM_PERCUSSION.keys())})
 
 
-#MPAS THE INSTRUMENT INTO ONE FOR EACH CATEGOTY 
+#MPAS THE SPACIFIC INSTRUMENT INTO ONE FOR EACH CATEGOTY 
 InstrumentMap = {}
 InstrumentMap.update({k: 1 for k in list(GM_INSTRUMENTS.keys())[0:8]})
 InstrumentMap.update({k: 9 for k in list(GM_INSTRUMENTS.keys())[8:16]})
@@ -343,6 +343,3 @@ InstrumentMap.update({k: 97 for k in list(GM_INSTRUMENTS.keys())[96:104]})
 InstrumentMap.update({k: 105 for k in list(GM_INSTRUMENTS.keys())[104:112]})
 InstrumentMap.update({k: 113 for k in list(GM_INSTRUMENTS.keys())[112:120]})
 InstrumentMap.update({k: 121 for k in list(GM_INSTRUMENTS.keys())[120:128]})
-
-#REMEMBER, PROGRAM 180 DOESN'T EXIST, IF IT HAPPEN IT HAS TO BE MAPPED TO CHANNEL 10 AND PROGRAM 35
-#InstrumentMap.update({k: 180 for k in list(GM_PERCUSSION.keys())})

@@ -5,6 +5,7 @@ from tqdm import tqdm
 from scipy import sparse
 import torch
 from collections import defaultdict
+import gc
 
 
 from mido.midifiles.meta import KeySignatureError
@@ -295,6 +296,9 @@ def ToBars(track, TicksPerBeat, Velocity, length = 16):
       #if len(np.where(np.ravel(matrix) != 0)[0]) >= 5:
          Tensor = torch.tensor(matrix, dtype=torch.int)
          barList.append(Tensor.to_sparse())
+
+   #del Bars
+   #gc.collect()
    
    return barList
 
@@ -357,7 +361,7 @@ def ToGeneralInfo(mid, Dataset, file, Velocity):
          #and add the information to the Dataset dictionary
          Dataset[TrackName]['Bars'].extend(BarsPair)
          Dataset[TrackName]['Tempo'].extend([(int(Tempo), int(Tempo)) for _ in range(0, len(Bars)//2-1, 2)])
-         Dataset[TrackName]['Program'].extend([(NewProgram, NewProgram) for _ in range(0, len(Bars)//2-1, 2)])
+         Dataset[TrackName]['Program'].extend([(Program, Program) for _ in range(0, len(Bars)//2-1, 2)])
          Dataset[TrackName]['Channel'].extend([(Channel, Channel) for _ in range(0, len(Bars)//2-1, 2)])
          Dataset[TrackName]['SongName'].extend([(f'{TrackName}', f'{TrackName}') for _ in range(0, len(Bars)//2-1, 2)])
          Dataset[TrackName]['numBar'].extend(numPair)
@@ -421,7 +425,41 @@ def PreProcessing(nDir = 300, Velocity = False):
          MappedDataset[Instrument]['SongName'].append(value['SongName'][i])
          MappedDataset[Instrument]['numBar'].append(value['numBar'][i])
 
-   return MappedDataset
+
+   #Better dataset structure!
+   FinalDict = {}
+   for key in MappedDataset.keys():
+      SN = MappedDataset[key]['SongName']
+      Bars = MappedDataset[key]['Bars']
+      Prog = MappedDataset[key]['Program']
+      AP = MappedDataset[key]['Channel']
+      nB = MappedDataset[key]['numBar']
+      T = MappedDataset[key]['Tempo']
+
+
+      List = []
+      for i in range(len(SN)):
+         dict = {
+            'SongName': SN[i],
+            'Bars': Bars[i],
+            'Program': Prog[i],
+            'Channel': AP[i],
+            'numBar': nB[i],
+            'Tempo': T[i]
+         }
+         List.append(dict)
+
+      FinalDict[key] = List
+
+   #Deleting wmpty bars
+   for key in tqdm(FinalDict.keys(), desc='Deleting Empty bars:'):
+      for i in range(len(FinalDict[key])):
+         if torch.sum(FinalDict[key][i]['Bars'][0]) == 0 or torch.sum(FinalDict[key][i]['Bars'][1]) == 0:
+            del FinalDict[key][i]
+
+   
+
+   return FinalDict
 
 
 
