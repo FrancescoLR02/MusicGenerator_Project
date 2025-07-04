@@ -34,43 +34,118 @@ def AddZeros(Lists):
 
 
 #Extract all the bars from each track 
-def ToPolyphonicBars(track, TicksPerBeat, Velocity, length = 16):
+# def ToPolyphonicBars(track, TicksPerBeat, Velocity, length = 16):
 
-   #since these tracks are all 4/4
+#    #since these tracks are all 4/4
+#    TicksPerBar = TicksPerBeat * 4
+#    TicksPerSixteenth = TicksPerBar // length
+
+#    currTime = 0
+#    Note = []
+
+#    for msg in track:
+#       currTime += msg.time
+#       if msg.type == 'note_on' and msg.velocity > 0:
+#          barNumber = currTime // TicksPerBar
+#          posInBar = (currTime % TicksPerBar) // TicksPerSixteenth
+   
+#          if posInBar < length:
+#             Note.append((barNumber, msg.note, posInBar, msg.velocity))
+
+#    Bars = {}
+#    barNumRecord = []
+#    for barNum, note, pos, vel in Note:
+#       if barNum not in Bars:
+#          Bars[barNum] = np.zeros((128, length), dtype = int)
+#          barNumRecord.append(barNum+1)
+
+#       #Fill the matrix with the note at it's correct position
+#       if Velocity:
+#          Bars[barNum][note, pos] = vel
+#       else:
+#          Bars[barNum][note, pos] = 1
+
+#    barList = []
+
+#    for barNum, matrix in Bars.items():
+#       barList.append(matrix)
+   
+#          #List of all the active bars and 128x16xN matrcies of bars
+#    return barNumRecord, barList
+
+
+
+def ToPolyphonicBars(track, TicksPerBeat, Velocity, length=16):
+   # Since these tracks are all 4/4
    TicksPerBar = TicksPerBeat * 4
    TicksPerSixteenth = TicksPerBar // length
-
+   
    currTime = 0
+   ActiveNotes = {}  
    Note = []
-
+   
    for msg in track:
       currTime += msg.time
+      
       if msg.type == 'note_on' and msg.velocity > 0:
-         barNumber = currTime // TicksPerBar
-         posInBar = (currTime % TicksPerBar) // TicksPerSixteenth
+         # Note starts
+         ActiveNotes[msg.note] = (currTime, msg.velocity)
+         
+      elif (msg.type == 'note_off') or (msg.type == 'note_on' and msg.velocity == 0):
+         # Note ends
+         if msg.note in ActiveNotes:
+            start_time, velocity = ActiveNotes[msg.note]
+            end_time = currTime
+            
+            # Compute position
+            start_bar = start_time // TicksPerBar
+            end_bar = end_time // TicksPerBar
+            start_pos = (start_time % TicksPerBar) // TicksPerSixteenth
+            end_pos = (end_time % TicksPerBar) // TicksPerSixteenth
+            
+            if start_bar == end_bar:
+               # Note within single bar
+               if start_pos < length and end_pos <= length:
+                  Note.append((start_bar, msg.note, start_pos, min(end_pos, length-1), velocity))
+            else:
+               if start_pos < length:
+                  Note.append((start_bar, msg.note, start_pos, length-1, velocity))
+               
+               for bar in range(start_bar + 1, end_bar):
+                  Note.append((bar, msg.note, 0, length-1, velocity))
+               
+               if end_pos > 0 and end_pos <= length:
+                  Note.append((end_bar, msg.note, 0, end_pos-1, velocity))
+            
+            del ActiveNotes[msg.note]
    
-         if posInBar < length:
-            Note.append((barNumber, msg.note, posInBar, msg.velocity))
-
+   # Handle any notes that were never turned off
+   for note, (start_time, velocity) in ActiveNotes.items():
+      start_bar = start_time // TicksPerBar
+      start_pos = (start_time % TicksPerBar) // TicksPerSixteenth
+      if start_pos < length:
+         Note.append((start_bar, note, start_pos, start_pos, velocity))
+   
    Bars = {}
    barNumRecord = []
-   for barNum, note, pos, vel in Note:
+   for barNum, note, start_pos, end_pos, vel in Note:
       if barNum not in Bars:
-         Bars[barNum] = np.zeros((128, length), dtype = int)
+         Bars[barNum] = np.zeros((128, length), dtype=int)
          barNumRecord.append(barNum+1)
 
-      #Fill the matrix with the note at it's correct position
-      if Velocity:
-         Bars[barNum][note, pos] = vel
-      else:
-         Bars[barNum][note, pos] = 1
 
+      # Fill the matrix 
+      for pos in range(start_pos, end_pos + 1):
+         if pos < length:
+            if Velocity:
+               Bars[barNum][note, pos] = vel
+            else:
+               Bars[barNum][note, pos] = 1
+   
    barList = []
-
    for barNum, matrix in Bars.items():
       barList.append(matrix)
    
-         #List of all the active bars and 128x16xN matrcies of bars
    return barNumRecord, barList
 
 
@@ -315,52 +390,141 @@ def PolyphonicPreProcessing(nDir = 300, Velocity=False):
 
 
 #From Nx128x16 matrix to midi file
-def PolyBarsToMIDI(Bars, Velocity=False, title='reconstructed', Instrument=None):
+# def PolyBarsToMIDI(Bars, Velocity=False, title='reconstructed', Instrument=None):
     
-   mid = mido.MidiFile()
-   ticks_per_beat = 480 
-   deltaT = ticks_per_beat // 4  
+#    mid = mido.MidiFile()
+#    ticks_per_beat = 480 
+#    deltaT = ticks_per_beat // 4  
 
-   HowManyInstruments = np.shape(Bars)[0]
+#    HowManyInstruments = np.shape(Bars)[0]
    
 
-   for j in range(HowManyInstruments):
-      track = mido.MidiTrack()
-      mid.tracks.append(track)
+#    for j in range(HowManyInstruments):
+#       track = mido.MidiTrack()
+#       mid.tracks.append(track)
       
-      #Metadata
-      track.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(np.random.randint(80, 140)), time=0))
-      track.append(mido.MetaMessage('time_signature', numerator=4, denominator=4, time=0))
-      track.append(mido.Message('program_change', channel=j, program=Instrument[j], time=0))
+#       #Metadata
+#       track.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(np.random.randint(80, 140)), time=0))
+#       track.append(mido.MetaMessage('time_signature', numerator=4, denominator=4, time=0))
+#       track.append(mido.Message('program_change', channel=j, program=Instrument[j], time=0))
 
-      CurrTime = 0
+#       CurrTime = 0
         
-      for t in range(np.shape(Bars)[2]):
-         #All notes in step "note"
-         NotesForStep = []
-         for note in range(128):
-            if Bars[j, note, t] != 0:
-               NotesForStep.append(note)
+#       for t in range(np.shape(Bars)[2]):
+#          #All notes in step "note"
+#          NotesForStep = []
+#          for note in range(128):
+#             if Bars[j, note, t] != 0:
+#                NotesForStep.append(note)
          
-         # Add all note-ons for this time step (simultaneous)
-         if NotesForStep:
-            for i, note in enumerate(NotesForStep):
-               # First note has delta time, others have 0 (same time)
-               DeltaT = CurrTime if i == 0 else 0
-               if Velocity:
-                  track.append(mido.Message('note_on', note=note, velocity=Bars[j, note, t], time=DeltaT, channel=j))
-               else:
-                  track.append(mido.Message('note_on', note=note, velocity=90, time=DeltaT, channel=j))
-               CurrTime = 0  # Reset after first note
+#          # Add all note-ons for this time step (simultaneous)
+#          if NotesForStep:
+#             for i, note in enumerate(NotesForStep):
+#                # First note has delta time, others have 0 (same time)
+#                DeltaT = CurrTime if i == 0 else 0
+#                track.append(mido.Message('note_on', note=note, velocity=90, time=DeltaT, channel=j))
+#                CurrTime = 0  # Reset after first note
                
-               # Add all note-offs after deltaT ticks
-               for i, note in enumerate(NotesForStep):
-                  DeltaT = deltaT if i == 0 else 0
-                  track.append(mido.Message('note_off', note=note, velocity=0, time=DeltaT, channel=j))
-                  CurrTime = 0 
-         else:
-            CurrTime += deltaT
+#                # Add all note-offs after deltaT ticks
+#                for i, note in enumerate(NotesForStep):
+#                   DeltaT = deltaT if i == 0 else 0
+#                   track.append(mido.Message('note_off', note=note, velocity=0, time=DeltaT, channel=j))
+#                   CurrTime = 0 
+#          else:
+#             CurrTime += deltaT
 
-      track.append(mido.MetaMessage('end_of_track', time=0))
+#       track.append(mido.MetaMessage('end_of_track', time=0))
 
-   mid.save(f'{title}.mid')
+#    mid.save(f'{title}.mid')
+
+
+def PolyBarsToMIDI(Bars, Velocity=False, title='reconstructed', Instrument=None, ticks_per_beat=480):
+    mid = mido.MidiFile(ticks_per_beat=ticks_per_beat)
+    
+    # Add a tempo track (track 0) - global tempo for all instruments
+    tempo_track = mido.MidiTrack()
+    mid.tracks.append(tempo_track)
+    tempo_track.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(120), time=0))
+    tempo_track.append(mido.MetaMessage('time_signature', numerator=4, denominator=4, time=0))
+    tempo_track.append(mido.MetaMessage('end_of_track', time=0))
+    
+    HowManyInstruments = Bars.shape[0]
+    num_positions = Bars.shape[2]
+    
+    # Calculate timing
+    ticks_per_bar = ticks_per_beat * 4
+    ticks_per_position = ticks_per_bar // num_positions
+    
+    # Process each instrument
+    for instrument_idx in range(HowManyInstruments):
+        track = mido.MidiTrack()
+        mid.tracks.append(track)
+        
+        # Set instrument program
+        if Instrument is not None and instrument_idx < len(Instrument):
+            program = Instrument[instrument_idx]
+        else:
+            program = np.random.choice(np.arange(1, 129))
+        
+        track.append(mido.Message('program_change', channel=instrument_idx, program=program, time=0))
+        
+        
+        ActiveNotes = {}
+        events = []  
+        
+        # Process each time position for this instrument
+        for pos in range(num_positions):
+            current_time = pos * ticks_per_position
+            
+            for note in range(128):
+                note_active = Bars[instrument_idx, note, pos] > 0
+                was_active = note in ActiveNotes
+                
+                if note_active and not was_active:
+                    # Note starts
+                    ActiveNotes[note] = pos
+                    if Velocity and Bars[instrument_idx, note, pos] > 1:
+                        velocity = int(Bars[instrument_idx, note, pos])
+                    else:
+                        velocity = 90
+                    events.append((current_time, 'note_on', note, velocity))
+                    
+                elif not note_active and was_active:
+                    # Note ends
+                    if Velocity and Bars[instrument_idx, note, ActiveNotes[note]] > 1:
+                        velocity = int(Bars[instrument_idx, note, ActiveNotes[note]])
+                    else:
+                        velocity = 90
+                    events.append((current_time, 'note_off', note, velocity))
+                    del ActiveNotes[note]
+        
+        # Handle any notes that are still active at the end
+        final_time = num_positions * ticks_per_position
+        for note in ActiveNotes:
+            if Velocity and Bars[instrument_idx, note, ActiveNotes[note]] > 1:
+                velocity = int(Bars[instrument_idx, note, ActiveNotes[note]])
+            else:
+                velocity = 90
+            events.append((final_time, 'note_off', note, velocity))
+        
+        # Sort events by time (note_on before note_off at same time)
+        events.sort(key=lambda x: (x[0], x[1] == 'note_off'))
+        
+        # Convert to MIDI messages with proper timing
+        last_time = 0
+        for abs_time, event_type, note, velocity in events:
+            delta_time = abs_time - last_time
+            
+            if event_type == 'note_on':
+                track.append(mido.Message('note_on', note=note, velocity=velocity, 
+                                        time=delta_time, channel=instrument_idx))
+            else:  # note_off
+                track.append(mido.Message('note_off', note=note, velocity=0, 
+                                        time=delta_time, channel=instrument_idx))
+            
+            last_time = abs_time
+        
+        # End of track
+        track.append(mido.MetaMessage('end_of_track', time=0))
+    
+    mid.save(f'{title}.mid')
