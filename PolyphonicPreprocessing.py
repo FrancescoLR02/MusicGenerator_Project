@@ -390,54 +390,6 @@ def PolyphonicPreProcessing(nDir = 300, Velocity=False):
 
 
 #From Nx128x16 matrix to midi file
-# def PolyBarsToMIDI(Bars, Velocity=False, title='reconstructed', Instrument=None):
-    
-#    mid = mido.MidiFile()
-#    ticks_per_beat = 480 
-#    deltaT = ticks_per_beat // 4  
-
-#    HowManyInstruments = np.shape(Bars)[0]
-   
-
-#    for j in range(HowManyInstruments):
-#       track = mido.MidiTrack()
-#       mid.tracks.append(track)
-      
-#       #Metadata
-#       track.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(np.random.randint(80, 140)), time=0))
-#       track.append(mido.MetaMessage('time_signature', numerator=4, denominator=4, time=0))
-#       track.append(mido.Message('program_change', channel=j, program=Instrument[j], time=0))
-
-#       CurrTime = 0
-        
-#       for t in range(np.shape(Bars)[2]):
-#          #All notes in step "note"
-#          NotesForStep = []
-#          for note in range(128):
-#             if Bars[j, note, t] != 0:
-#                NotesForStep.append(note)
-         
-#          # Add all note-ons for this time step (simultaneous)
-#          if NotesForStep:
-#             for i, note in enumerate(NotesForStep):
-#                # First note has delta time, others have 0 (same time)
-#                DeltaT = CurrTime if i == 0 else 0
-#                track.append(mido.Message('note_on', note=note, velocity=90, time=DeltaT, channel=j))
-#                CurrTime = 0  # Reset after first note
-               
-#                # Add all note-offs after deltaT ticks
-#                for i, note in enumerate(NotesForStep):
-#                   DeltaT = deltaT if i == 0 else 0
-#                   track.append(mido.Message('note_off', note=note, velocity=0, time=DeltaT, channel=j))
-#                   CurrTime = 0 
-#          else:
-#             CurrTime += deltaT
-
-#       track.append(mido.MetaMessage('end_of_track', time=0))
-
-#    mid.save(f'{title}.mid')
-
-
 def PolyBarsToMIDI(Bars, Velocity=False, title='reconstructed', Instrument=None, ticks_per_beat=480):
     mid = mido.MidiFile(ticks_per_beat=ticks_per_beat)
     
@@ -453,7 +405,7 @@ def PolyBarsToMIDI(Bars, Velocity=False, title='reconstructed', Instrument=None,
     
     # Calculate timing
     ticks_per_bar = ticks_per_beat * 4
-    ticks_per_position = ticks_per_bar // num_positions
+    ticks_per_position = ticks_per_bar // 16
     
     # Process each instrument
     for instrument_idx in range(HowManyInstruments):

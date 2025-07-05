@@ -140,123 +140,123 @@ def CleaningData(InputPath = os.path.realpath('clean_midi'), LogFolder = os.path
 
 #####PRE PROCESSING #####
 
-#Transorm a given track into monophonic
-def ToMonophonic(track):
-   absTime = 0
-   Events, Metadata, ProgramChange = [], [], []
-   channel = None
+# #Transorm a given track into monophonic
+# def ToMonophonic(track):
+#    absTime = 0
+#    Events, Metadata, ProgramChange = [], [], []
+#    channel = None
 
-   for msg in track:
-      absTime += msg.time
+#    for msg in track:
+#       absTime += msg.time
 
-      if msg.is_meta:
-         Metadata.append((absTime, msg))
+#       if msg.is_meta:
+#          Metadata.append((absTime, msg))
 
-      elif msg.type == 'note_on' and msg.velocity > 0:
-         Events.append((absTime, msg.note, msg.velocity, 'on', msg.channel))
-         if channel is None:
-            channel = msg.channel
+#       elif msg.type == 'note_on' and msg.velocity > 0:
+#          Events.append((absTime, msg.note, msg.velocity, 'on', msg.channel))
+#          if channel is None:
+#             channel = msg.channel
 
-      elif msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0):
-         Events.append((absTime, msg.note, 0, 'off', msg.channel))
-         if channel is None:
-               channel = msg.channel
+#       elif msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0):
+#          Events.append((absTime, msg.note, 0, 'off', msg.channel))
+#          if channel is None:
+#                channel = msg.channel
 
-      elif msg.type == 'program_change':
-         ProgramChange.append((absTime, msg))
-         if channel is None:
-            channel = msg.channel
+#       elif msg.type == 'program_change':
+#          ProgramChange.append((absTime, msg))
+#          if channel is None:
+#             channel = msg.channel
 
-   # sort note events: first by time, then by descending pitch
-   Events.sort(key=lambda x: (x[0], -x[1]))
+#    # sort note events: first by time, then by descending pitch
+#    Events.sort(key=lambda x: (x[0], -x[1]))
 
-   activeNote = None
-   monoEvents = []
+#    activeNote = None
+#    monoEvents = []
 
-   for time, note, velocity, kind, _ in Events:
-      if kind == 'on':
-         if activeNote is None or note > activeNote:
-            if activeNote is not None:
-               monoEvents.append(('off', activeNote, time, velocity))
-            activeNote = note
-            monoEvents.append(('on', note, time, velocity))
-      elif kind == 'off' and note == activeNote:
-         monoEvents.append(('off', note, time, velocity))
-         activeNote = None
+#    for time, note, velocity, kind, _ in Events:
+#       if kind == 'on':
+#          if activeNote is None or note > activeNote:
+#             if activeNote is not None:
+#                monoEvents.append(('off', activeNote, time, velocity))
+#             activeNote = note
+#             monoEvents.append(('on', note, time, velocity))
+#       elif kind == 'off' and note == activeNote:
+#          monoEvents.append(('off', note, time, velocity))
+#          activeNote = None
 
-   # Rebuild the monophonic track
-   newTrack = MidiTrack()
-   prevTime = 0
+#    # Rebuild the monophonic track
+#    newTrack = MidiTrack()
+#    prevTime = 0
 
-   # Add metadata
-   for absTime, msg in sorted(Metadata, key=lambda x: x[0]):
-      delta = absTime - prevTime
-      msgDict = msg.dict().copy()
-      msgDict.pop('time', None)
-      msgDict.pop('type', None)
-      newTrack.append(MetaMessage(msg.type, time=delta, **msgDict))
-      prevTime = absTime
+#    # Add metadata
+#    for absTime, msg in sorted(Metadata, key=lambda x: x[0]):
+#       delta = absTime - prevTime
+#       msgDict = msg.dict().copy()
+#       msgDict.pop('time', None)
+#       msgDict.pop('type', None)
+#       newTrack.append(MetaMessage(msg.type, time=delta, **msgDict))
+#       prevTime = absTime
 
-   # Add program_change messages
-   for absTime, msg in sorted(ProgramChange, key=lambda x: x[0]):
-      delta = absTime - prevTime
-      msgDict = msg.dict().copy()
-      msgDict.pop('time', None)
-      msgDict.pop('type', None)
-      newTrack.append(Message('program_change', time=delta, **msgDict))
-      prevTime = absTime
+#    # Add program_change messages
+#    for absTime, msg in sorted(ProgramChange, key=lambda x: x[0]):
+#       delta = absTime - prevTime
+#       msgDict = msg.dict().copy()
+#       msgDict.pop('time', None)
+#       msgDict.pop('type', None)
+#       newTrack.append(Message('program_change', time=delta, **msgDict))
+#       prevTime = absTime
 
-   # Add monophonic note events
-   for kind, note, absTime, velocity in monoEvents:
-      delta = absTime - prevTime
-      if kind == 'on':
-         newTrack.append(Message('note_on', note=note, velocity=velocity, time=delta, channel=channel))
-      else:
-         newTrack.append(Message('note_off', note=note, velocity=velocity, time=delta, channel=channel))
-      prevTime = absTime
+#    # Add monophonic note events
+#    for kind, note, absTime, velocity in monoEvents:
+#       delta = absTime - prevTime
+#       if kind == 'on':
+#          newTrack.append(Message('note_on', note=note, velocity=velocity, time=delta, channel=channel))
+#       else:
+#          newTrack.append(Message('note_off', note=note, velocity=velocity, time=delta, channel=channel))
+#       prevTime = absTime
 
-   return newTrack
-
-
+#    return newTrack
 
 
-#Recreate the whole database with monophonic information
-def RecreateDatabase():
 
-   InputPath = os.path.realpath('clean_midi')
-   os.makedirs('Mono_CleanMidi', exist_ok=True)
-   OutputPath = os.path.realpath('Mono_CleanMidi')
 
-   for dir in tqdm(os.listdir(InputPath), desc='Recreating Database'):
-      DirPath = os.path.join(InputPath, dir)
+# #Recreate the whole database with monophonic information
+# def RecreateDatabase():
 
-      if not os.path.isdir(DirPath):
-         continue
+#    InputPath = os.path.realpath('clean_midi')
+#    os.makedirs('Mono_CleanMidi', exist_ok=True)
+#    OutputPath = os.path.realpath('Mono_CleanMidi')
 
-      #In the output path, create the folder of the artist if does not exits
-      if not os.path.exists(os.path.join(OutputPath, dir)):
-        os.makedirs(os.path.join(OutputPath, dir))
+#    for dir in tqdm(os.listdir(InputPath), desc='Recreating Database'):
+#       DirPath = os.path.join(InputPath, dir)
 
-      for file in os.listdir(DirPath):
-         FilePath = os.path.join(DirPath, file)
+#       if not os.path.isdir(DirPath):
+#          continue
 
-         mid = mido.MidiFile(FilePath)
-         #Instatiate the new monophonic midi file
-         newMid = mido.MidiFile(ticks_per_beat=mid.ticks_per_beat)
+#       #In the output path, create the folder of the artist if does not exits
+#       if not os.path.exists(os.path.join(OutputPath, dir)):
+#         os.makedirs(os.path.join(OutputPath, dir))
 
-         #loop over all the tracks in the original file and saving as new file:
-         for track in mid.tracks:
+#       for file in os.listdir(DirPath):
+#          FilePath = os.path.join(DirPath, file)
+
+#          mid = mido.MidiFile(FilePath)
+#          #Instatiate the new monophonic midi file
+#          newMid = mido.MidiFile(ticks_per_beat=mid.ticks_per_beat)
+
+#          #loop over all the tracks in the original file and saving as new file:
+#          for track in mid.tracks:
             
-            try: 
-               MonoMidi = ToMonophonic(track)
-               newMid.tracks.append(MonoMidi)
-            except (KeyError) as e:
-               continue
+#             try: 
+#                MonoMidi = ToMonophonic(track)
+#                newMid.tracks.append(MonoMidi)
+#             except (KeyError) as e:
+#                continue
          
-         try:
-            newMid.save(os.path.join(OutputPath, dir, file))
-         except (ValueError, KeyError) as e:
-            continue
+#          try:
+#             newMid.save(os.path.join(OutputPath, dir, file))
+#          except (ValueError, KeyError) as e:
+#             continue
 
 def ToBars(track, TicksPerBeat, Velocity, length=16):
    # Since these tracks are all 4/4
@@ -277,45 +277,45 @@ def ToBars(track, TicksPerBeat, Velocity, length=16):
       elif (msg.type == 'note_off') or (msg.type == 'note_on' and msg.velocity == 0):
          # Note ends
          if msg.note in ActiveNotes:
-            start_time, velocity = ActiveNotes[msg.note]
-            end_time = currTime
+            StartTime, velocity = ActiveNotes[msg.note]
+            EndTime = currTime
             
             # Compute position
-            start_bar = start_time // TicksPerBar
-            end_bar = end_time // TicksPerBar
-            start_pos = (start_time % TicksPerBar) // TicksPerSixteenth
-            end_pos = (end_time % TicksPerBar) // TicksPerSixteenth
+            StartBar = StartTime // TicksPerBar
+            EndBar = EndTime // TicksPerBar
+            StartPos = (StartTime % TicksPerBar) // TicksPerSixteenth
+            EndPos = (EndTime % TicksPerBar) // TicksPerSixteenth
             
-            if start_bar == end_bar:
+            if StartBar == EndBar:
                # Note within single bar
-               if start_pos < length and end_pos <= length:
-                  Note.append((start_bar, msg.note, start_pos, min(end_pos, length-1), velocity))
+               if StartPos < length and EndPos <= length:
+                  Note.append((StartBar, msg.note, StartPos, min(EndPos, length-1), velocity))
             else:
-               if start_pos < length:
-                  Note.append((start_bar, msg.note, start_pos, length-1, velocity))
+               if StartPos < length:
+                  Note.append((StartBar, msg.note, StartPos, length-1, velocity))
                
-               for bar in range(start_bar + 1, end_bar):
+               for bar in range(StartBar + 1, EndBar):
                   Note.append((bar, msg.note, 0, length-1, velocity))
                
-               if end_pos > 0 and end_pos <= length:
-                  Note.append((end_bar, msg.note, 0, end_pos-1, velocity))
+               if EndPos > 0 and EndPos <= length:
+                  Note.append((EndBar, msg.note, 0, EndPos-1, velocity))
             
             del ActiveNotes[msg.note]
    
    # Handle any notes that were never turned off
-   for note, (start_time, velocity) in ActiveNotes.items():
-      start_bar = start_time // TicksPerBar
-      start_pos = (start_time % TicksPerBar) // TicksPerSixteenth
-      if start_pos < length:
-         Note.append((start_bar, note, start_pos, start_pos, velocity))
+   for note, (StartTime, velocity) in ActiveNotes.items():
+      StartBar = StartTime // TicksPerBar
+      StartPos = (StartTime % TicksPerBar) // TicksPerSixteenth
+      if StartPos < length:
+         Note.append((StartBar, note, StartPos, StartPos, velocity))
    
    Bars = {}
-   for bar_num, note, start_pos, end_pos, vel in Note:
+   for bar_num, note, StartPos, EndPos, vel in Note:
       if bar_num not in Bars:
          Bars[bar_num] = np.zeros((128, length), dtype=int)
       
       # Fill the matrix 
-      for pos in range(start_pos, end_pos + 1):
+      for pos in range(StartPos, EndPos + 1):
          if pos < length:
             if Velocity:
                Bars[bar_num][note, pos] = vel
@@ -326,6 +326,9 @@ def ToBars(track, TicksPerBeat, Velocity, length=16):
    for barNum, matrix in Bars.items():
       Tensor = torch.tensor(matrix, dtype=torch.int)
       barList.append(Tensor.to_sparse())
+
+   del Bars
+   gc.collect()
    
    return barList
 
@@ -357,8 +360,16 @@ def ToGeneralInfo(mid, Dataset, file, Velocity):
          Program = [msg.program for msg in track if msg.type == 'program_change'][0]
          Channel = [msg.channel for msg in track if msg.type == 'program_change'][0]
 
-         if Program == 0 or Channel == 10:
+         if Program == 0: #or Channel == 10:
             continue
+
+         #Allow also percussion instruments to be considered among all the others:
+         #These instruments in fact are more particular and have different conventions and 
+         #programs w.r.t the other instruments.
+         if Channel == 10: #conventionally the channel for percussion instruments
+            if 35 < Program < 81: #ensure it is a percussion instrument
+               Program += 128 #Shifting the prioritar program of percussion instruments by 128 (no conflicts this way)
+
 
          #Compute the (128x16) bars matrix for each track
          Bars = ToBars(track, TicksPerBeat, Velocity)
@@ -430,7 +441,11 @@ def PreProcessing(nDir = 300, Velocity = False):
       
       for i, prog in enumerate(value['Program']):
 
-         Instrument = Util.InstrumentFamily_Map[prog[0]]
+         if prog[0] > 128:
+            Instrument = 'Percussion'
+
+         else:
+            Instrument = Util.InstrumentFamily_Map[prog[0]]
 
          if Instrument not in MappedDataset:
             MappedDataset[Instrument] = {
@@ -476,7 +491,7 @@ def PreProcessing(nDir = 300, Velocity = False):
       FinalDict[key] = List
 
    #Deleting wmpty bars
-   for key in tqdm(FinalDict.keys(), desc='Deleting Empty bars:'):
+   for key in FinalDict.keys():
       for i in range(len(FinalDict[key])):
          if torch.sum(FinalDict[key][i]['Bars'][0]) == 0 or torch.sum(FinalDict[key][i]['Bars'][1]) == 0:
             del FinalDict[key][i]
@@ -504,8 +519,8 @@ def MonoBarsToMIDI(Bars, title='reconstructed', Instrument=None, ticks_per_beat=
    
    track.append(mido.Message('program_change', channel=1, program=Program, time=0))
    
-   ticks_per_bar = ticks_per_beat * 4
-   ticks_per_position = ticks_per_bar // Bars.shape[1] 
+   TicksPerBar = ticks_per_beat * 4
+   TicksPerPosition = TicksPerBar // 16
    
 
    ActiveNotes = {} 
@@ -513,7 +528,7 @@ def MonoBarsToMIDI(Bars, title='reconstructed', Instrument=None, ticks_per_beat=
    
 
    for pos in range(Bars.shape[1]):
-      current_time = pos * ticks_per_position
+      current_time = pos * TicksPerPosition
       
       for note in range(128):
          note_active = Bars[note, pos] > 0
@@ -532,7 +547,7 @@ def MonoBarsToMIDI(Bars, title='reconstructed', Instrument=None, ticks_per_beat=
             del ActiveNotes[note]
    
 
-   final_time = Bars.shape[1] * ticks_per_position
+   final_time = Bars.shape[1] * TicksPerPosition
    for note in ActiveNotes:
       velocity = int(Bars[note, ActiveNotes[note]]) if Bars[note, ActiveNotes[note]] > 1 else 90
       events.append((final_time, 'note_off', note, velocity))
