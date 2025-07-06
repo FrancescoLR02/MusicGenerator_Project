@@ -7,6 +7,8 @@ import torch
 from collections import defaultdict
 import gc
 
+from pympler import asizeof
+
 
 from mido.midifiles.meta import KeySignatureError
 from mido import MidiTrack, MetaMessage, Message
@@ -308,6 +310,8 @@ def ToBars(track, TicksPerBeat, Velocity, length=16):
       StartPos = (StartTime % TicksPerBar) // TicksPerSixteenth
       if StartPos < length:
          Note.append((StartBar, note, StartPos, StartPos, velocity))
+
+   #ActiveNotes.clear()
    
    Bars = {}
    for bar_num, note, StartPos, EndPos, vel in Note:
@@ -321,14 +325,17 @@ def ToBars(track, TicksPerBeat, Velocity, length=16):
                Bars[bar_num][note, pos] = vel
             else:
                Bars[bar_num][note, pos] = 1
+
+   #Note.clear()
    
    barList = []
    for barNum, matrix in Bars.items():
       Tensor = torch.tensor(matrix, dtype=torch.int)
       barList.append(Tensor.to_sparse())
 
-   del Bars
-   gc.collect()
+   # Bars.clear()
+   # del Bars
+   # gc.collect()
    
    return barList
 
@@ -416,6 +423,7 @@ def PreProcessing(nDir = 300, Velocity = False):
    random_dirs = np.random.choice(all_dirs, nDir)
 
    for dir in tqdm(random_dirs, desc='Preprocessing'):
+   #for dir in random_dirs:
       DirPath = os.path.join(InputPath, dir)
 
       if not os.path.isdir(DirPath):
@@ -426,13 +434,21 @@ def PreProcessing(nDir = 300, Velocity = False):
 
          FilePath = os.path.join(DirPath, file)
 
-         #Cleaned monophonic: Some songs are corrupted:
+         with open('LogFolder/Debug.txt', 'a') as f:
+            f.write(f'{dir}\{file}\n')
+
          mid = Func_CorruptedFile(FilePath, file, dir)
 
          if mid is None:
             continue
 
          Dataset = ToGeneralInfo(mid, Dataset, file, Velocity)
+      # with open('LogFolder/Sizes.txt', 'a') as f:
+      #    f.write(f'{asizeof.asizeof(Dataset)}\n')
+
+
+
+#         del mid
 
    
    MappedDataset = {}
@@ -465,6 +481,11 @@ def PreProcessing(nDir = 300, Velocity = False):
          MappedDataset[Instrument]['numBar'].append(value['numBar'][i])
 
 
+   # Dataset.clear()
+   # del Dataset
+   # gc.collect()
+
+
    #Better dataset structure!
    FinalDict = {}
    for key in MappedDataset.keys():
@@ -493,9 +514,12 @@ def PreProcessing(nDir = 300, Velocity = False):
    #Deleting wmpty bars
    for key in FinalDict.keys():
       for i in range(len(FinalDict[key])):
-         if torch.sum(FinalDict[key][i]['Bars'][0]) == 0 or torch.sum(FinalDict[key][i]['Bars'][1]) == 0:
+         if torch.sum(FinalDict[key][i]['Bars'][0]) <= 6 or torch.sum(FinalDict[key][i]['Bars'][1]) <= 6:
             del FinalDict[key][i]
 
+   # MappedDataset.clear()
+   # del MappedDataset
+   # gc.collect()
    
 
    return FinalDict
