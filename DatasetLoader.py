@@ -5,16 +5,17 @@ import numpy as np
 import gc
 
 
-def collate_fn(batch):
-   return batch
-
 #Loading monophonic and polyphonic classes
 class MonophonicDataset(Dataset):
 
-   def __init__(self, Instrument):
+   def __init__(self, Instruments):
       
-      DS = torch.load('Dataset.pt')
-      self.Data = DS[Instrument]
+      DS = torch.load('Dataset_CP.pt')
+      self.Data = []
+      self.Instruments = Instruments
+
+      for inst in Instruments:
+         self.Data.extend(DS[inst])
 
       del DS
       gc.collect()
@@ -24,7 +25,6 @@ class MonophonicDataset(Dataset):
       return len(self.Data)
 
    def __getitem__(self, idx):
-      Sample = self.Data[idx]
 
       PreviousBars = self.Data[idx]['Bars'][0].to_dense()
       Bars = self.Data[idx]['Bars'][1].to_dense()
@@ -37,13 +37,17 @@ class MonophonicDataset(Dataset):
    
 
 
-
 class PolyphonicDataset(Dataset):
 
    def __init__(self, Genre):
       
          DS = torch.load('PolyphonicDataset.pt', weights_only=False)
-         self.Data = DS[Genre]
+         self.Data = []
+         self.Genre = Genre
+
+         for gen in Genre:
+            if Genre == 'rock':
+               self.Data.extend(DS[gen])
 
          del DS
          gc.collect()
@@ -52,8 +56,15 @@ class PolyphonicDataset(Dataset):
       return len(self.Data)
 
    def __getitem__(self, idx):
-      Sample = self.Data[idx]
-      return Sample
+
+      PreviousBars = self.Data[idx]['Bars'][0].to_dense()
+      Bars = self.Data[idx]['Bars'][1].to_dense()
+
+      prog = self.Data[idx]['Program']
+      tempo = self.Data[idx]['Tempo'][0]
+
+      Cond1D = torch.tensor(np.ravel([tempo, prog]), dtype=torch.int, device=Bars.device)
+      return Bars, PreviousBars, Cond1D
    
 
 

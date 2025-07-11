@@ -379,7 +379,7 @@ def PolyphonicPreProcessing(nDir = 300, Velocity=False):
 
       FinalDict[key] = list
 
-   for key in tqdm(FinalDict.keys()):
+   for key in FinalDict.keys():
       for i in reversed(range(len(FinalDict[key]))):
          if torch.sum(FinalDict[key][i]['Bars'][0]) == 0 or torch.sum(FinalDict[key][i]['Bars'][1]) == 0:
             del FinalDict[key][i]

@@ -261,6 +261,10 @@ def CleaningData(InputPath = os.path.realpath('clean_midi'), LogFolder = os.path
 #             continue
 
 
+
+
+
+
 def ToBars(track, TicksPerBeat, Velocity, length=16):
    # Since these tracks are all 4/4
    TicksPerBar = TicksPerBeat * 4
@@ -412,6 +416,15 @@ def ToGeneralInfo(mid, Dataset, file, Velocity):
    return Dataset
 
 
+
+
+
+
+
+
+
+
+
 def PreProcessing(nDir = 300, Velocity = False):
 
    Dataset = {}
@@ -515,7 +528,7 @@ def PreProcessing(nDir = 300, Velocity = False):
    #Deleting wmpty bars
    for key in FinalDict.keys():
       for i in range(len(FinalDict[key])):
-         if torch.sum(FinalDict[key][i]['Bars'][0]) <= 6 or torch.sum(FinalDict[key][i]['Bars'][1]) <= 6:
+         if torch.sum(FinalDict[key][i]['Bars'][0]) <= 0 or torch.sum(FinalDict[key][i]['Bars'][1]) <= 0:
             del FinalDict[key][i]
 
    # MappedDataset.clear()
