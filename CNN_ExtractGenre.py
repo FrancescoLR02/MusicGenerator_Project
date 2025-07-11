@@ -122,7 +122,7 @@ def CNN_Training(trainLoader, valLoader):
    device = "cuda" if torch.cuda.is_available() else "cpu"
    model = GenreCNN()
    opt = Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
-   scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(opt, patience=3, factor=0.5)
+   #scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(opt, patience=3, factor=0.5)
    loss_fn = CrossEntropyLoss()
    model.to(device)
 

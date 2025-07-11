@@ -260,6 +260,7 @@ def CleaningData(InputPath = os.path.realpath('clean_midi'), LogFolder = os.path
 #          except (ValueError, KeyError) as e:
 #             continue
 
+
 def ToBars(track, TicksPerBeat, Velocity, length=16):
    # Since these tracks are all 4/4
    TicksPerBar = TicksPerBeat * 4
@@ -302,7 +303,7 @@ def ToBars(track, TicksPerBeat, Velocity, length=16):
                if EndPos > 0 and EndPos <= length:
                   Note.append((EndBar, msg.note, 0, EndPos-1, velocity))
             
-            del ActiveNotes[msg.note]
+            #del ActiveNotes[msg.note]
    
    # Handle any notes that were never turned off
    for note, (StartTime, velocity) in ActiveNotes.items():
@@ -311,7 +312,7 @@ def ToBars(track, TicksPerBeat, Velocity, length=16):
       if StartPos < length:
          Note.append((StartBar, note, StartPos, StartPos, velocity))
 
-   #ActiveNotes.clear()
+   ActiveNotes.clear()
    
    Bars = {}
    for bar_num, note, StartPos, EndPos, vel in Note:

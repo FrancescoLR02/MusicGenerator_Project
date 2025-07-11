@@ -26,8 +26,8 @@ class MonophonicDataset(Dataset):
    def __getitem__(self, idx):
       Sample = self.Data[idx]
 
-      Bars = self.Data[idx]['Bars'][0].to_dense()
-      PreviousBars = self.Data[idx]['Bars'][1].to_dense()
+      PreviousBars = self.Data[idx]['Bars'][0].to_dense()
+      Bars = self.Data[idx]['Bars'][1].to_dense()
 
       prog = self.Data[idx]['Program']
       tempo = self.Data[idx]['Tempo'][0]
