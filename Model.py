@@ -144,8 +144,6 @@ class Generator(nn.Module):
 
             return out
 
-
-
 class Discriminator(nn.Module):
 
     def __init__(self, cond_1d_size, instrument_size=1):
@@ -158,15 +156,15 @@ class Discriminator(nn.Module):
         self.cnn1 = nn.Sequential(
             nn.Conv2d(2*instrument_size+cond_1d_size, 32, kernel_size=(128,2), stride=(2,2), padding=0),        #[batch,32,1,8]
             nn.LeakyReLU(0.2),
-            nn.Dropout(0.1)
+            nn.Dropout(0.2)
         )
         #+condition [batch,14+cond_1d_size,1,8]
         self.cnn2 = nn.Sequential(
             nn.Conv2d(32+cond_1d_size, 77, kernel_size=(1,4), stride=2, padding=0),                             #[batch,77,1,3]
             #Adding residual block
-            nn.LeakyReLU(0.2),
+            nn.LeakyReLU(),
             nn.Conv2d(77, 77, kernel_size=(1,1)),  # Identity shortcut
-            nn.LeakyReLU(0.2)
+            nn.LeakyReLU()
         )
 
         self.ffnn1 = nn.Sequential(
@@ -174,7 +172,7 @@ class Discriminator(nn.Module):
             nn.Linear(231+cond_1d_size, 1024),
             nn.BatchNorm1d(1024),
             nn.LeakyReLU(0.2),
-            nn.Dropout(0.1)
+            nn.Dropout(0.2)
         )
         #+condition [batch,1024+cond_1d_size]
         self.ffnn2 = nn.Linear(1024+cond_1d_size, 1)      #no sigmoid activation function because it is already in the definition of the cross entropy loss function
@@ -200,8 +198,6 @@ class Discriminator(nn.Module):
 
 
         return h3_sigmoid, h3, fm
-
-
 
 
 

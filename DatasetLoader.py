@@ -46,8 +46,7 @@ class PolyphonicDataset(Dataset):
          self.Genre = Genre
 
          for gen in Genre:
-            if Genre == 'rock':
-               self.Data.extend(DS[gen])
+            self.Data.extend(DS[gen])
 
          del DS
          gc.collect()
@@ -60,10 +59,10 @@ class PolyphonicDataset(Dataset):
       PreviousBars = self.Data[idx]['Bars'][0].to_dense()
       Bars = self.Data[idx]['Bars'][1].to_dense()
 
-      prog = self.Data[idx]['Program']
+      prog = self.Data[idx]['Program'][0]
       tempo = self.Data[idx]['Tempo'][0]
 
-      Cond1D = torch.tensor(np.ravel([tempo, prog]), dtype=torch.int, device=Bars.device)
+      Cond1D = torch.tensor([tempo] + prog, dtype=torch.int, device=Bars.device)
       return Bars, PreviousBars, Cond1D
    
 
