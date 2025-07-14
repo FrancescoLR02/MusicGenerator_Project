@@ -4,15 +4,18 @@ import pickle
 import numpy as np
 import gc
 
+from Preprocessing import EightBarsDataset
+
 
 #Loading monophonic and polyphonic classes
 class MonophonicDataset(Dataset):
 
-   def __init__(self, Instruments):
+   def __init__(self, Instruments, EightBars = False):
       
-      DS = torch.load('Dataset_CP.pt')
+      DS = torch.load('Dataset_CP.pt', weights_only=False)
       self.Data = []
       self.Instruments = Instruments
+      self.EightBars = EightBars
 
       for inst in Instruments:
          self.Data.extend(DS[inst])
@@ -26,24 +29,35 @@ class MonophonicDataset(Dataset):
 
    def __getitem__(self, idx):
 
-      PreviousBars = self.Data[idx]['Bars'][0].to_dense()
-      Bars = self.Data[idx]['Bars'][1].to_dense()
+      if not self.EightBars:
+         PreviousBars = self.Data[idx]['Bars'][0].to_dense()
+         Bars = self.Data[idx]['Bars'][1].to_dense()
 
-      prog = self.Data[idx]['Program']
-      tempo = self.Data[idx]['Tempo'][0]
+         prog = self.Data[idx]['Program']
+         tempo = self.Data[idx]['Tempo'][0]
 
-      Cond1D = torch.tensor([tempo, prog], dtype=torch.int, device=Bars.device)
-      return Bars, PreviousBars, Cond1D
-   
+         Cond1D = torch.tensor([tempo, prog], dtype=torch.int, device=Bars.device)
+         return Bars, PreviousBars, Cond1D
+      
+      else:
+         EightDataset = EightBarsDataset(Dataset, Mono = True)
+
+         if len(self.Instruments) > 1:
+            raise ValueError('More than 1 instrument selected. Please, select only one')
+         
+         Bars = EightDataset[self.Instruments][idx]['Bars']
+         return Bars
+      
 
 
 class PolyphonicDataset(Dataset):
 
-   def __init__(self, Genre):
+   def __init__(self, Genre, EightBars = False):
       
          DS = torch.load('PolyphonicDataset.pt', weights_only=False)
          self.Data = []
          self.Genre = Genre
+         self.EightBars = EightBars
 
          for gen in Genre:
             self.Data.extend(DS[gen])
@@ -56,14 +70,26 @@ class PolyphonicDataset(Dataset):
 
    def __getitem__(self, idx):
 
-      PreviousBars = self.Data[idx]['Bars'][0].to_dense()
-      Bars = self.Data[idx]['Bars'][1].to_dense()
+      if not self.EightBars:
 
-      prog = self.Data[idx]['Program'][0]
-      tempo = self.Data[idx]['Tempo'][0]
+         PreviousBars = self.Data[idx]['Bars'][0].to_dense()
+         Bars = self.Data[idx]['Bars'][1].to_dense()
 
-      Cond1D = torch.tensor([tempo] + prog, dtype=torch.int, device=Bars.device)
-      return Bars, PreviousBars, Cond1D
+         prog = self.Data[idx]['Program'][0]
+         tempo = self.Data[idx]['Tempo'][0]
+
+         Cond1D = torch.tensor([tempo] + prog, dtype=torch.int, device=Bars.device)
+         return Bars, PreviousBars, Cond1D
+      
+      else:
+         EightDataset = EightBarsDataset(Dataset, Mono = False)
+
+         if len(self.Genre) > 1:
+            raise ValueError('More than 1 genre selected. Please, select only one')
+         
+         Bars = EightDataset[self.Genre][idx]['Bars']
+         return Bars
+
    
 
 

@@ -420,11 +420,6 @@ def ToGeneralInfo(mid, Dataset, file, Velocity):
 
 
 
-
-
-
-
-
 def PreProcessing(nDir = 300, Velocity = False):
 
    Dataset = {}
@@ -605,4 +600,43 @@ def MonoBarsToMIDI(Bars, title='reconstructed', Instrument=None, ticks_per_beat=
       last_time = abs_time
    
    mid.save(f'{title}.mid')
+
+
+
+
+def EightBarsDataset(Dataset, Mono = True):
+   EightBars_Dataset = {}
+   for key in Dataset.keys():
+
+      List = []
+      for i in range(0, len(Dataset[key])//4, 4):
+         SongName = Dataset[key][i]['SongName'][0]
+         Tempo = Dataset[key][i]['Tempo'][0]
+         Program = Dataset[key][i]['Program']
+
+
+         EightBars = []
+
+         for j in range(4):
+            for k in range(2):
+               if Dataset[key][i + j]['SongName'][k] == SongName:
+
+                  EightBars.append(Dataset[key][i + j]['Bars'][k])
+
+         if Mono:
+            EightBarsConcat = torch.cat(EightBars, dim = 1)
+         else:
+            EightBarsConcat = torch.cat(EightBars, dim = 2)
+
+         dict = {
+            'SongName': SongName,
+            'Bars': EightBarsConcat,
+            'Tempo': Tempo
+         }
+
+         List.append(dict)
+
+      EightBars_Dataset[key] = List
+
+   return EightBars_Dataset
 
