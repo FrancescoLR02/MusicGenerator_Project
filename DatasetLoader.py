@@ -4,7 +4,43 @@ import pickle
 import numpy as np
 import gc
 
-from Preprocessing import EightBarsDataset
+def EightBarsDataset(Dataset, Mono = True):
+   EightBars_Dataset = {}
+   for key in Dataset.keys():
+
+      List = []
+      for i in range(0, len(Dataset[key])//4, 4):
+         SongName = Dataset[key][i]['SongName'][0]
+         Tempo = Dataset[key][i]['Tempo'][0]
+         Program = Dataset[key][i]['Program']
+
+
+         EightBars = []
+
+         for j in range(4):
+            for k in range(2):
+               if Dataset[key][i + j]['SongName'][k] == SongName:
+
+                  EightBars.append(Dataset[key][i + j]['Bars'][k])
+
+         if Mono:
+            EightBarsConcat = torch.cat(EightBars, dim = 1)
+         else:
+            EightBarsConcat = torch.cat(EightBars, dim = 2)
+
+         dict = {
+            'SongName': SongName,
+            'Bars': EightBarsConcat,
+            'Tempo': Tempo
+         }
+
+         List.append(dict)
+
+      EightBars_Dataset[key] = List
+
+   return EightBars_Dataset
+
+
 
 
 #Loading monophonic and polyphonic classes
@@ -78,7 +114,13 @@ class PolyphonicDataset(Dataset):
          prog = self.Data[idx]['Program'][0]
          tempo = self.Data[idx]['Tempo'][0]
 
-         Cond1D = torch.tensor([tempo] + prog, dtype=torch.int, device=Bars.device)
+         TEMPO_MIN, TEMPO_MAX = 60, 200
+         PROGRAM_MIN, PROGRAM_MAX = 1, 128
+
+         tempo_norm = (tempo - TEMPO_MIN) / (TEMPO_MAX - TEMPO_MIN)
+         prog_norm = [(p - PROGRAM_MIN) / (PROGRAM_MAX - PROGRAM_MIN) for p in prog]
+
+         Cond1D = torch.tensor([tempo_norm] + prog_norm, dtype=torch.float, device=Bars.device)
          return Bars, PreviousBars, Cond1D
       
       else:

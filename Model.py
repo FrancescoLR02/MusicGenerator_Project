@@ -56,7 +56,7 @@ class Generator(nn.Module):
                 )
             self.ff2 = nn.Sequential(
                 nn.Linear(1024+cond_1d_size,n_hlayers*2),                                                                                    #[batch,512]
-                #nn.BatchNorm1d(n_hlayers*2),
+                nn.BatchNorm1d(n_hlayers*2),
                 nn.ReLU()
                 )
             #reshape to [batch size,128,1,2]
@@ -69,7 +69,7 @@ class Generator(nn.Module):
             #+condition [batch,128+cond_1d_size+16,1,2]
             self.cnn2 = nn.Sequential(
                 nn.ConvTranspose2d(n_hlayers+cond_1d_size+16, n_hlayers, kernel_size=(1,2), stride=(2,2), bias=False, padding=0),           #[batch,128,1,8]
-                #nn.BatchNorm2d(n_hlayers),
+                nn.BatchNorm2d(n_hlayers),
                 nn.ReLU()
                 )
             #+condition [batch,128+cond_1d_size+16,1,2]
@@ -94,7 +94,7 @@ class Generator(nn.Module):
                 )
             self.h1_prev = nn.Sequential(
                 nn.Conv2d(in_channels=16, out_channels=16, kernel_size=(1,2), stride=(2,2)),                                  #[batch,16,1,8]
-                #nn.BatchNorm2d(16),
+                nn.BatchNorm2d(16),
                 nn.LeakyReLU()
                 )
             self.h2_prev = nn.Sequential(
@@ -104,7 +104,7 @@ class Generator(nn.Module):
                 )
             self.h3_prev = nn.Sequential(
                 nn.Conv2d(in_channels=16, out_channels=16, kernel_size=(1,2), stride=(2,2)),                                  #[batch,16,1,2]
-                #nn.BatchNorm2d(16),
+                nn.BatchNorm2d(16),
                 nn.LeakyReLU()
                 )
 
@@ -143,6 +143,9 @@ class Generator(nn.Module):
             out = self.cnn4(h4)                     #[batch,instrument_size,128,16]
 
             return out
+    
+
+    
     
 
 
