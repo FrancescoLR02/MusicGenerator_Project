@@ -124,7 +124,7 @@ class PolyphonicDataset(Dataset):
          return Bars, PreviousBars, Cond1D
       
       else:
-         EightDataset = EightBarsDataset(Dataset, Mono = False)
+         EightDataset = EightBarsDataset(self.Data, Mono = False)
 
          if len(self.Genre) > 1:
             raise ValueError('More than 1 genre selected. Please, select only one')

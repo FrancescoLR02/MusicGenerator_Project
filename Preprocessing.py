@@ -606,37 +606,39 @@ def MonoBarsToMIDI(Bars, title='reconstructed', Instrument=None, ticks_per_beat=
 
 def EightBarsDataset(Dataset, Mono = True):
    EightBars_Dataset = {}
-   for key in Dataset.keys():
-
-      List = []
-      for i in range(0, len(Dataset[key])//4, 4):
-         SongName = Dataset[key][i]['SongName'][0]
-         Tempo = Dataset[key][i]['Tempo'][0]
-         Program = Dataset[key][i]['Program']
 
 
-         EightBars = []
+   List = []
+   for i in range(0, len(Dataset)//4, 4):
+      SongName = Dataset[i]['SongName'][0]
+      Tempo = Dataset[i]['Tempo'][0]
+      Program = Dataset[i]['Program']
 
-         for j in range(4):
-            for k in range(2):
-               if Dataset[key][i + j]['SongName'][k] == SongName:
 
-                  EightBars.append(Dataset[key][i + j]['Bars'][k])
+      EightBars = []
 
-         if Mono:
-            EightBarsConcat = torch.cat(EightBars, dim = 1)
-         else:
-            EightBarsConcat = torch.cat(EightBars, dim = 2)
+      for j in range(4):
+         for k in range(2):
+            if Dataset[i + j]['SongName'][k] == SongName:
 
+               EightBars.append(Dataset[i + j]['Bars'][k])
+
+      if Mono:
+         EightBarsConcat = torch.cat(EightBars, dim = 1)
+      else:
+         EightBarsConcat = torch.cat(EightBars, dim = 2)
+
+      if np.shape(EightBarsConcat.to_dense())[-1] == 128:
          dict = {
             'SongName': SongName,
             'Bars': EightBarsConcat,
-            'Tempo': Tempo
+            'Tempo': Tempo,
+            'Program': Program
          }
 
          List.append(dict)
 
-      EightBars_Dataset[key] = List
+   EightBars_Dataset = List
 
    return EightBars_Dataset
 
