@@ -251,10 +251,10 @@ def ToPolyphonicGeneralInfo(mid, Dataset, file, dir, Velocity,  HowManyInstrumen
    #Counts the number of pair of bars
    Dim = len(PolyphonicDataset)//2
 
-   numPair = [(i, i+1) for i in range(0, Dim - 1, 2)]
-   BarsPair = [(PolyphonicDataset[i], PolyphonicDataset[i+1]) for i in range(0, Dim - 1, 2)]
-   ActiveProgram = [(FullActiveBars[i], FullActiveBars[i+1]) for i in range(0, Dim - 1, 2)]
-   FullProgramList = [(ProgramList, ProgramList) for _ in range(0, Dim - 1, 2)]
+   numPair = [(i, i+1) for i in range(2, Dim - 3, 2)]
+   BarsPair = [(PolyphonicDataset[i], PolyphonicDataset[i+1]) for i in range(2, Dim - 3, 2)]
+   ActiveProgram = [(FullActiveBars[i], FullActiveBars[i+1]) for i in range(2, Dim - 3, 2)]
+   FullProgramList = [(ProgramList, ProgramList) for _ in range(2, Dim - 3, 2)]
 
 
    #If there is not the track in the dataset, add it
@@ -271,12 +271,12 @@ def ToPolyphonicGeneralInfo(mid, Dataset, file, dir, Velocity,  HowManyInstrumen
    #Maps the program into one instrument of the same category
    
    #and add the information to the Dataset dictionary
-   Dataset[TrackName]['SongName'].extend([(f'{TrackName}', f'{TrackName}') for _ in range(0, Dim - 1, 2)])
+   Dataset[TrackName]['SongName'].extend([(f'{TrackName}', f'{TrackName}') for _ in range(2, Dim - 3, 2)])
    Dataset[TrackName]['Bars'].extend(BarsPair)
    Dataset[TrackName]['Program'].extend(FullProgramList)
    Dataset[TrackName]['ActiveProgram'].extend(ActiveProgram)
    Dataset[TrackName]['numBar'].extend(numPair)
-   Dataset[TrackName]['Tempo'].extend([(int(Tempo), int(Tempo)) for _ in range(0, Dim - 1, 2)])
+   Dataset[TrackName]['Tempo'].extend([(int(Tempo), int(Tempo)) for _ in range(2, Dim - 3, 2)])
 
    if Debug:
       del Bars

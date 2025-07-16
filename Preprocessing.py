@@ -22,7 +22,6 @@ WrongTimeStamp = 'WrongTimeStamp.txt'
 DuplicatedFiles = 'DuplicatedFiles.txt'
 
 ######CLEANING OF THE DATA#####
-
 def DeleteDuplicates(InputPath = os.path.realpath('clean_midi'), LogFolder = os.path.realpath('LogFolder')):
 
    DupFilePath = os.path.join(LogFolder, DuplicatedFiles)
@@ -140,126 +139,6 @@ def CleaningData(InputPath = os.path.realpath('clean_midi'), LogFolder = os.path
 
 
 
-#####PRE PROCESSING #####
-
-# #Transorm a given track into monophonic
-# def ToMonophonic(track):
-#    absTime = 0
-#    Events, Metadata, ProgramChange = [], [], []
-#    channel = None
-
-#    for msg in track:
-#       absTime += msg.time
-
-#       if msg.is_meta:
-#          Metadata.append((absTime, msg))
-
-#       elif msg.type == 'note_on' and msg.velocity > 0:
-#          Events.append((absTime, msg.note, msg.velocity, 'on', msg.channel))
-#          if channel is None:
-#             channel = msg.channel
-
-#       elif msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0):
-#          Events.append((absTime, msg.note, 0, 'off', msg.channel))
-#          if channel is None:
-#                channel = msg.channel
-
-#       elif msg.type == 'program_change':
-#          ProgramChange.append((absTime, msg))
-#          if channel is None:
-#             channel = msg.channel
-
-#    # sort note events: first by time, then by descending pitch
-#    Events.sort(key=lambda x: (x[0], -x[1]))
-
-#    activeNote = None
-#    monoEvents = []
-
-#    for time, note, velocity, kind, _ in Events:
-#       if kind == 'on':
-#          if activeNote is None or note > activeNote:
-#             if activeNote is not None:
-#                monoEvents.append(('off', activeNote, time, velocity))
-#             activeNote = note
-#             monoEvents.append(('on', note, time, velocity))
-#       elif kind == 'off' and note == activeNote:
-#          monoEvents.append(('off', note, time, velocity))
-#          activeNote = None
-
-#    # Rebuild the monophonic track
-#    newTrack = MidiTrack()
-#    prevTime = 0
-
-#    # Add metadata
-#    for absTime, msg in sorted(Metadata, key=lambda x: x[0]):
-#       delta = absTime - prevTime
-#       msgDict = msg.dict().copy()
-#       msgDict.pop('time', None)
-#       msgDict.pop('type', None)
-#       newTrack.append(MetaMessage(msg.type, time=delta, **msgDict))
-#       prevTime = absTime
-
-#    # Add program_change messages
-#    for absTime, msg in sorted(ProgramChange, key=lambda x: x[0]):
-#       delta = absTime - prevTime
-#       msgDict = msg.dict().copy()
-#       msgDict.pop('time', None)
-#       msgDict.pop('type', None)
-#       newTrack.append(Message('program_change', time=delta, **msgDict))
-#       prevTime = absTime
-
-#    # Add monophonic note events
-#    for kind, note, absTime, velocity in monoEvents:
-#       delta = absTime - prevTime
-#       if kind == 'on':
-#          newTrack.append(Message('note_on', note=note, velocity=velocity, time=delta, channel=channel))
-#       else:
-#          newTrack.append(Message('note_off', note=note, velocity=velocity, time=delta, channel=channel))
-#       prevTime = absTime
-
-#    return newTrack
-
-
-
-
-# #Recreate the whole database with monophonic information
-# def RecreateDatabase():
-
-#    InputPath = os.path.realpath('clean_midi')
-#    os.makedirs('Mono_CleanMidi', exist_ok=True)
-#    OutputPath = os.path.realpath('Mono_CleanMidi')
-
-#    for dir in tqdm(os.listdir(InputPath), desc='Recreating Database'):
-#       DirPath = os.path.join(InputPath, dir)
-
-#       if not os.path.isdir(DirPath):
-#          continue
-
-#       #In the output path, create the folder of the artist if does not exits
-#       if not os.path.exists(os.path.join(OutputPath, dir)):
-#         os.makedirs(os.path.join(OutputPath, dir))
-
-#       for file in os.listdir(DirPath):
-#          FilePath = os.path.join(DirPath, file)
-
-#          mid = mido.MidiFile(FilePath)
-#          #Instatiate the new monophonic midi file
-#          newMid = mido.MidiFile(ticks_per_beat=mid.ticks_per_beat)
-
-#          #loop over all the tracks in the original file and saving as new file:
-#          for track in mid.tracks:
-            
-#             try: 
-#                MonoMidi = ToMonophonic(track)
-#                newMid.tracks.append(MonoMidi)
-#             except (KeyError) as e:
-#                continue
-         
-#          try:
-#             newMid.save(os.path.join(OutputPath, dir, file))
-#          except (ValueError, KeyError) as e:
-#             continue
-
 
 
 
@@ -372,7 +251,7 @@ def ToGeneralInfo(mid, Dataset, file, Velocity):
          Program = [msg.program for msg in track if msg.type == 'program_change'][0]
          Channel = [msg.channel for msg in track if msg.type == 'program_change'][0]
 
-         if Program == 0: #or Channel == 10:
+         if Program == 0:
             continue
 
          #Allow also percussion instruments to be considered among all the others:
@@ -386,12 +265,12 @@ def ToGeneralInfo(mid, Dataset, file, Velocity):
          #Compute the (128x16) bars matrix for each track
          Bars = ToBars(track, TicksPerBeat, Velocity)
 
-         if Bars is None or len(Bars) < 2:
+         if Bars is None or len(Bars) < 5:
             continue
 
          #Counts the number of pair of bars
-         numPair = [(i, i+1) for i in range(0, len(Bars)//2 - 1, 2)]
-         BarsPair = [(Bars[i], Bars[i+1]) for i in range(0, len(Bars)//2 - 1, 2)]
+         numPair = [(i, i+1) for i in range(2, len(Bars)//2 - 3, 2)]
+         BarsPair = [(Bars[i], Bars[i+1]) for i in range(2, len(Bars)//2 - 3, 2)]
 
 
          #If there is not the track in the dataset, add it
@@ -407,10 +286,10 @@ def ToGeneralInfo(mid, Dataset, file, Velocity):
          
          #and add the information to the Dataset dictionary
          Dataset[TrackName]['Bars'].extend(BarsPair)
-         Dataset[TrackName]['Tempo'].extend([(int(Tempo), int(Tempo)) for _ in range(0, len(Bars)//2-1, 2)])
-         Dataset[TrackName]['Program'].extend([(Program, Program) for _ in range(0, len(Bars)//2-1, 2)])
-         Dataset[TrackName]['Channel'].extend([(Channel, Channel) for _ in range(0, len(Bars)//2-1, 2)])
-         Dataset[TrackName]['SongName'].extend([(f'{TrackName}', f'{TrackName}') for _ in range(0, len(Bars)//2-1, 2)])
+         Dataset[TrackName]['Tempo'].extend([(int(Tempo), int(Tempo)) for _ in range(2, len(Bars)//2-3, 2)])
+         Dataset[TrackName]['Program'].extend([(Program, Program) for _ in range(2, len(Bars)//2-3, 2)])
+         Dataset[TrackName]['Channel'].extend([(Channel, Channel) for _ in range(2, len(Bars)//2-3, 2)])
+         Dataset[TrackName]['SongName'].extend([(f'{TrackName}', f'{TrackName}') for _ in range(2, len(Bars)//2-3, 2)])
          Dataset[TrackName]['numBar'].extend(numPair)
 
    return Dataset
@@ -452,12 +331,7 @@ def PreProcessing(nDir = 300, Velocity = False):
             continue
 
          Dataset = ToGeneralInfo(mid, Dataset, file, Velocity)
-      # with open('LogFolder/Sizes.txt', 'a') as f:
-      #    f.write(f'{asizeof.asizeof(Dataset)}\n')
 
-
-
-#         del mid
 
    
    MappedDataset = {}
@@ -490,11 +364,6 @@ def PreProcessing(nDir = 300, Velocity = False):
          MappedDataset[Instrument]['numBar'].append(value['numBar'][i])
 
 
-   # Dataset.clear()
-   # del Dataset
-   # gc.collect()
-
-
    #Better dataset structure!
    FinalDict = {}
    for key in MappedDataset.keys():
@@ -525,10 +394,6 @@ def PreProcessing(nDir = 300, Velocity = False):
       for i in range(len(FinalDict[key])):
          if torch.sum(FinalDict[key][i]['Bars'][0]) <= 0 or torch.sum(FinalDict[key][i]['Bars'][1]) <= 0:
             del FinalDict[key][i]
-
-   # MappedDataset.clear()
-   # del MappedDataset
-   # gc.collect()
    
 
    return FinalDict
