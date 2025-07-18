@@ -257,7 +257,7 @@ def ToGeneralInfo(mid, Dataset, file, Velocity):
          #Allow also percussion instruments to be considered among all the others:
          #These instruments in fact are more particular and have different conventions and 
          #programs w.r.t the other instruments.
-         if Channel == 10: #conventionally the channel for percussion instruments
+         if Channel == 9: #conventionally the channel for percussion instruments
             if 35 < Program < 81: #ensure it is a percussion instrument
                Program += 128 #Shifting the prioritar program of percussion instruments by 128 (no conflicts this way)
 
