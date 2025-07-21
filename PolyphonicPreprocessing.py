@@ -11,9 +11,6 @@ import gc
 import Util as Util
 from Preprocessing import *
 
-
-
-#find the maximum value inside a list and fill the other so that they have the same dimension
 def AddZeros(Lists):
    
    maxValList = [np.max(a) for a in Lists]
@@ -32,50 +29,7 @@ def AddZeros(Lists):
    return np.array(outputList)
 
 
-
-#Extract all the bars from each track 
-# def ToPolyphonicBars(track, TicksPerBeat, Velocity, length = 16):
-
-#    #since these tracks are all 4/4
-#    TicksPerBar = TicksPerBeat * 4
-#    TicksPerSixteenth = TicksPerBar // length
-
-#    currTime = 0
-#    Note = []
-
-#    for msg in track:
-#       currTime += msg.time
-#       if msg.type == 'note_on' and msg.velocity > 0:
-#          barNumber = currTime // TicksPerBar
-#          posInBar = (currTime % TicksPerBar) // TicksPerSixteenth
-   
-#          if posInBar < length:
-#             Note.append((barNumber, msg.note, posInBar, msg.velocity))
-
-#    Bars = {}
-#    barNumRecord = []
-#    for barNum, note, pos, vel in Note:
-#       if barNum not in Bars:
-#          Bars[barNum] = np.zeros((128, length), dtype = int)
-#          barNumRecord.append(barNum+1)
-
-#       #Fill the matrix with the note at it's correct position
-#       if Velocity:
-#          Bars[barNum][note, pos] = vel
-#       else:
-#          Bars[barNum][note, pos] = 1
-
-#    barList = []
-
-#    for barNum, matrix in Bars.items():
-#       barList.append(matrix)
-   
-#          #List of all the active bars and 128x16xN matrcies of bars
-#    return barNumRecord, barList
-
-
-
-def ToPolyphonicBars(track, TicksPerBeat, Velocity, length=16):
+def ToPolyphonicBars(track, TicksPerBeat, length=16):
    # Since these tracks are all 4/4
    TicksPerBar = TicksPerBeat * 4
    TicksPerSixteenth = TicksPerBar // length
@@ -137,10 +91,7 @@ def ToPolyphonicBars(track, TicksPerBeat, Velocity, length=16):
       # Fill the matrix 
       for pos in range(start_pos, end_pos + 1):
          if pos < length:
-            if Velocity:
-               Bars[barNum][note, pos] = vel
-            else:
-               Bars[barNum][note, pos] = 1
+            Bars[barNum][note, pos] = 1
    
    barList = []
    for barNum, matrix in Bars.items():
@@ -150,7 +101,9 @@ def ToPolyphonicBars(track, TicksPerBeat, Velocity, length=16):
 
 
 #From all the track (maximum 4) of a given song build the (4x128x16) tensor 
-def ToPolyphonicGeneralInfo(mid, Dataset, file, dir, Velocity,  HowManyInstruments = 4, Debug = False):
+def ToPolyphonicGeneralInfo(mid, Dataset, file, dir, HowManyInstruments = 4):
+
+   global Empty
 
    Func_Tempo = lambda t: 60_000_000 / t
    TicksPerBeat = mid.ticks_per_beat
@@ -167,46 +120,96 @@ def ToPolyphonicGeneralInfo(mid, Dataset, file, dir, Velocity,  HowManyInstrumen
          else:
             Tempo = 120
 
+   ChannelList = []
+   ProgramList = []
 
-   ProgramCounter = 0
-   BarsRecordList, BarsList, ProgramList = [], [], []
+   #Keeps track of the four family of instrument 
+   PianoInstr, GuitarInstr, BassInstr, PercussInstr = 0, 0, 0, 0
+   
 
-
+   #First step: Control which instruments are playing in the song
    for track in mid.tracks:
-      #Consider only the tracks that have an instrument in it (remove grabage!!)
       HasProgramChange = any(msg.type == 'program_change' for msg in track)
+      Channel = [msg.channel for msg in track if msg.type == 'control_change']
+
+      if len(Channel) != 0:
+         Channel = Channel[0]
+         if HasProgramChange or Channel == 9:
+            Program = [msg.program for msg in track if msg.type == 'program_change'][0] if Channel != 9 else 150
+            ProgramList.append(Program)
+            ChannelList.append(Channel)
+
+   #If there are not at least 4 instruments return nothing
+   if len(ProgramList) < HowManyInstruments:
+      return Dataset
+
+   #Second step: Choose among the instruments the main ones: Guitar, Bass, Piano and Percussive (special care for the last one)
+   ChoosenProg = []
+   for prog in ProgramList:
+      if 1 <= prog <= 8 and PianoInstr < 1:
+         ChoosenProg.append(prog)
+         PianoInstr += 1
+
+      elif 25 <= prog <= 32 and GuitarInstr < 1:
+         ChoosenProg.append(prog)
+         GuitarInstr += 1
+
+      elif 33 <= prog <= 40 and BassInstr < 1:
+         ChoosenProg.append(prog)
+         BassInstr += 1
+
+      elif prog == 150 and PercussInstr < 1:
+         ChoosenProg.append(prog)
+         PercussInstr += 1
+   
+   #Third step: if in the song there are not these instruments choose randomly among the other 
+   '''Improvement: choose another instrument forcly'''
+   TotalInstruments = PianoInstr + GuitarInstr + BassInstr + PercussInstr
+   if TotalInstruments < HowManyInstruments:
+      #All the instruments not already choosen
+      OtherInstruments = [x for x in ProgramList if x not in ChoosenProg and x != 0]
+      try:
+         RandomInstruments = np.random.choice(OtherInstruments, HowManyInstruments - TotalInstruments)
+      except:
+         Empty += 1
+         return Dataset
+      ChoosenProg.extend(RandomInstruments)
+
+   BarsRecordList, BarsList = [], []
+   InstrumentsPlayed = set()
+   for track in mid.tracks:
+
+      HasProgramChange = any(msg.type == 'program_change' for msg in track)
+      Channel = [msg.channel for msg in track if msg.type == 'control_change']
+
+      if len(Channel) != 0:
+         Channel = Channel[0]
       
-      if HasProgramChange:
+         if HasProgramChange or Channel == 9:
+            Program = [msg.program for msg in track if msg.type == 'program_change'][0] if Channel != 9 else 150
 
-         Program = [msg.program for msg in track if msg.type == 'program_change'][0]
-         Channel = [msg.channel for msg in track if msg.type == 'program_change'][0]
+            if Program in ChoosenProg and Program not in InstrumentsPlayed:
+               BarsRecord, Bars = ToPolyphonicBars(track, TicksPerBeat)
+               #if Bars is None or len(Bars) <4:
+                  #continue
+               BarsRecordList.append(BarsRecord)
+               BarsList.append(Bars)
+               InstrumentsPlayed.add(Program)
 
-         if Program == 0 or Channel == 10:
-            continue
-
-         #Compute the (128x16) bars matrix for each track
-         BarsRecord, Bars = ToPolyphonicBars(track, TicksPerBeat, Velocity)
-
-         if Bars is None or len(Bars) <4:
-            continue
-
-         BarsRecordList.append(BarsRecord)
-         BarsList.append(Bars)
-                           #Mapping each instrument in a family
-         ProgramList.append(Util.InstrumentMap[Program])
-
-         #We set a maximum of 4 tracks for each song.
-         ProgramCounter += 1
-         if ProgramCounter > HowManyInstruments - 1:
-            break
-
+   if len(ChoosenProg) != 4:
+      
+      Empty += 1
+      return Dataset
    
    if len(BarsRecordList) == 0:
       return Dataset
-
-
+   
    #Complete array for the number of bars
-   FullBarRecord = AddZeros(BarsRecordList)
+   try:
+      FullBarRecord = AddZeros(BarsRecordList)
+   except:
+      Empty += 1
+      return Dataset
 
    #Check the active instrument at bar i:
    FullActiveBars = []
@@ -221,10 +224,6 @@ def ToPolyphonicGeneralInfo(mid, Dataset, file, dir, Velocity,  HowManyInstrumen
 
       FullActiveBars.append(ActiveBars)
    
-
-   #Taking songs that have at least 4 instruments playing
-   if len(FullBarRecord) < HowManyInstruments:
-      return Dataset
    
    PolyphonicDataset = []
             #loop through all the bars (active or inactive)
@@ -246,15 +245,26 @@ def ToPolyphonicGeneralInfo(mid, Dataset, file, dir, Velocity,  HowManyInstrumen
       PolyphonicBars = torch.tensor(PolyphonicBars).to_sparse()
 
       PolyphonicDataset.append(PolyphonicBars)
-         
+
+   #Determine the genre of the song 
+   with open('GenreDataset.pkl', 'rb') as f:
+      GenreDataset = pickle.load(f)
 
    #Counts the number of pair of bars
    Dim = len(PolyphonicDataset)//2
 
+   try:
+      SongGenre = GenreDataset[f'{dir}/{file[:-4]}'][0]
+      Genre = [SongGenre for _ in range(2, Dim-3, 2)]
+   except:
+      Empty += 1
+      return Dataset
+
+
    numPair = [(i, i+1) for i in range(2, Dim - 3, 2)]
    BarsPair = [(PolyphonicDataset[i], PolyphonicDataset[i+1]) for i in range(2, Dim - 3, 2)]
    ActiveProgram = [(FullActiveBars[i], FullActiveBars[i+1]) for i in range(2, Dim - 3, 2)]
-   FullProgramList = [(ProgramList, ProgramList) for _ in range(2, Dim - 3, 2)]
+   FullProgramList = [ChoosenProg for _ in range(2, Dim - 3, 2)]
 
 
    #If there is not the track in the dataset, add it
@@ -266,6 +276,7 @@ def ToPolyphonicGeneralInfo(mid, Dataset, file, dir, Velocity,  HowManyInstrumen
          'ActiveProgram': [],
          'numBar': [],
          'Tempo': [], 
+         'Genre': []
       }
 
    #Maps the program into one instrument of the same category
@@ -276,19 +287,20 @@ def ToPolyphonicGeneralInfo(mid, Dataset, file, dir, Velocity,  HowManyInstrumen
    Dataset[TrackName]['Program'].extend(FullProgramList)
    Dataset[TrackName]['ActiveProgram'].extend(ActiveProgram)
    Dataset[TrackName]['numBar'].extend(numPair)
-   Dataset[TrackName]['Tempo'].extend([(int(Tempo), int(Tempo)) for _ in range(2, Dim - 3, 2)])
-
-   if Debug:
-      del Bars
-      gc.collect()
-
-   return Dataset
+   Dataset[TrackName]['Tempo'].extend([int(Tempo) for _ in range(2, Dim - 3, 2)])
+   Dataset[TrackName]['Genre'].extend(Genre)
 
 
+   return Dataset      
+
+
+
+Empty = 0
 #After having created the dataset, cathegorize the songs in the corresponding genre
-def PolyphonicPreProcessing(nDir = 300, Velocity=False):
+def PolyphonicPreProcessing(nDir = 300):
 
    Dataset = {}
+   iter = 0
 
    InputPath = os.path.relpath('clean_midi')
 
@@ -305,6 +317,7 @@ def PolyphonicPreProcessing(nDir = 300, Velocity=False):
 
       #Real all the file in each folder
       for file in os.listdir(DirPath):
+         iter += 1
 
          FilePath = os.path.join(DirPath, file)
 
@@ -314,55 +327,19 @@ def PolyphonicPreProcessing(nDir = 300, Velocity=False):
          if mid is None:
             continue
 
-         Dataset = ToPolyphonicGeneralInfo(mid, Dataset, file, dir, Velocity)
+         Dataset = ToPolyphonicGeneralInfo(mid, Dataset, file, dir)
 
 
-   #Load the file that maps each song in the corresponding genre
-   with open('GenreDataset.pkl', 'rb') as f:
-      GenreDataset = pickle.load(f)
 
-   GenreMapping = {0: 'metal', 1: 'disco', 2: 'classical', 3: 'hiphop', 4: 'jazz',
-          5: 'country', 6: 'pop', 7: 'blues', 8: 'raggae', 9: 'rock'}
-
-   MappedDataset = {}
+   FinalDict = []
    for key in Dataset.keys():
-      
-      try:
-         GenreDataset[key]
-      except:
-         continue
-
-               #Extrapolate genre from the dataset
-      Genre = GenreDataset[key][0]
-      value = Dataset[key]
-
-      if GenreMapping[Genre] not in MappedDataset:
-         MappedDataset[GenreMapping[Genre]] = {
-            'SongName': [],
-            'Bars': [],
-            'Program': [],
-            'ActiveProgram': [],
-            'numBar': [],
-            'Tempo': [], 
-         }
-
-      #remaps the dataset into the one cathegorized by genre
-      MappedDataset[GenreMapping[Genre]]['SongName'].extend(value['SongName'])
-      MappedDataset[GenreMapping[Genre]]['Bars'].extend(value['Bars'])
-      MappedDataset[GenreMapping[Genre]]['Program'].extend(value['Program'])
-      MappedDataset[GenreMapping[Genre]]['ActiveProgram'].extend(value['ActiveProgram'])
-      MappedDataset[GenreMapping[Genre]]['numBar'].extend(value['numBar'])
-      MappedDataset[GenreMapping[Genre]]['Tempo'].extend(value['Tempo'])
-
-
-   FinalDict = {}
-   for key in MappedDataset.keys():
-      SN = MappedDataset[key]['SongName']
-      Bars = MappedDataset[key]['Bars']
-      Prog = MappedDataset[key]['Program']
-      AP = MappedDataset[key]['ActiveProgram']
-      nB = MappedDataset[key]['numBar']
-      T = MappedDataset[key]['Tempo']
+      SN = Dataset[key]['SongName']
+      Bars = Dataset[key]['Bars']
+      Prog = Dataset[key]['Program']
+      AP = Dataset[key]['ActiveProgram']
+      nB = Dataset[key]['numBar']
+      T = Dataset[key]['Tempo']
+      Genre = Dataset[key]['Genre']
 
 
       list = []
@@ -371,18 +348,22 @@ def PolyphonicPreProcessing(nDir = 300, Velocity=False):
             'SongName': SN[i],
             'Bars': Bars[i],
             'Program': Prog[i],
-            'AP': AP[i],
+            'ActiveProgram': AP[i],
             'numBar': nB[i],
-            'Tempo': T[i]
+            'Tempo': T[i],
+            'Genre': Genre[i]
          }
          list.append(dict)
 
-      FinalDict[key] = list
+      FinalDict.extend(list)
+   
+   Del = 0
+   for i in reversed(range(len(FinalDict))):
+      if torch.sum(FinalDict[i]['Bars'][0]) == 0 or torch.sum(FinalDict[i]['Bars'][1]) == 0:
+         Del += 1
+         del FinalDict[i]
 
-   for key in FinalDict.keys():
-      for i in reversed(range(len(FinalDict[key]))):
-         if torch.sum(FinalDict[key][i]['Bars'][0]) == 0 or torch.sum(FinalDict[key][i]['Bars'][1]) == 0:
-            del FinalDict[key][i]
+   print(Del)
 
    return FinalDict
 

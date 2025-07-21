@@ -269,8 +269,8 @@ def ToGeneralInfo(mid, Dataset, file, Velocity):
             continue
 
          #Counts the number of pair of bars
-         numPair = [(i, i+1) for i in range(2, len(Bars)//2 - 3, 8)]
-         BarsPair = [(Bars[i], Bars[i+1]) for i in range(2, len(Bars)//2 - 3, 8)]
+         numPair = [(i, i+1) for i in range(2, len(Bars)//2 - 3, 2)]
+         BarsPair = [(Bars[i], Bars[i+1]) for i in range(2, len(Bars)//2 - 3, 2)]
 
 
          #If there is not the track in the dataset, add it
@@ -286,10 +286,10 @@ def ToGeneralInfo(mid, Dataset, file, Velocity):
          
          #and add the information to the Dataset dictionary
          Dataset[TrackName]['Bars'].extend(BarsPair)
-         Dataset[TrackName]['Tempo'].extend([(int(Tempo), int(Tempo)) for _ in range(2, len(Bars)//2-3, 8)])
-         Dataset[TrackName]['Program'].extend([(Program, Program) for _ in range(2, len(Bars)//2-3, 8)])
-         Dataset[TrackName]['Channel'].extend([(Channel, Channel) for _ in range(2, len(Bars)//2-3, 8)])
-         Dataset[TrackName]['SongName'].extend([(f'{TrackName}', f'{TrackName}') for _ in range(2, len(Bars)//2-3, 8)])
+         Dataset[TrackName]['Tempo'].extend([(int(Tempo), int(Tempo)) for _ in range(2, len(Bars)//2-3, 2)])
+         Dataset[TrackName]['Program'].extend([(Program, Program) for _ in range(2, len(Bars)//2-3, 2)])
+         Dataset[TrackName]['Channel'].extend([(Channel, Channel) for _ in range(2, len(Bars)//2-3, 2)])
+         Dataset[TrackName]['SongName'].extend([(f'{TrackName}', f'{TrackName}') for _ in range(2, len(Bars)//2-3, 2)])
          Dataset[TrackName]['numBar'].extend(numPair)
 
    return Dataset
