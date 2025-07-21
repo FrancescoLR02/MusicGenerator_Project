@@ -135,7 +135,7 @@ def ToPolyphonicGeneralInfo(mid, Dataset, file, dir, HowManyInstruments = 4):
       if len(Channel) != 0:
          Channel = Channel[0]
          if HasProgramChange or Channel == 9:
-            Program = [msg.program for msg in track if msg.type == 'program_change'][0] if Channel != 9 else 150
+            Program = [msg.program for msg in track if msg.type == 'program_change'][0] if Channel != 9 else 130
             ProgramList.append(Program)
             ChannelList.append(Channel)
 
@@ -158,7 +158,7 @@ def ToPolyphonicGeneralInfo(mid, Dataset, file, dir, HowManyInstruments = 4):
          ChoosenProg.append(prog)
          BassInstr += 1
 
-      elif prog == 150 and PercussInstr < 1:
+      elif prog == 130 and PercussInstr < 1:
          ChoosenProg.append(prog)
          PercussInstr += 1
    
@@ -186,7 +186,7 @@ def ToPolyphonicGeneralInfo(mid, Dataset, file, dir, HowManyInstruments = 4):
          Channel = Channel[0]
       
          if HasProgramChange or Channel == 9:
-            Program = [msg.program for msg in track if msg.type == 'program_change'][0] if Channel != 9 else 150
+            Program = [msg.program for msg in track if msg.type == 'program_change'][0] if Channel != 9 else 130
 
             if Program in ChoosenProg and Program not in InstrumentsPlayed:
                BarsRecord, Bars = ToPolyphonicBars(track, TicksPerBeat)
@@ -371,93 +371,84 @@ def PolyphonicPreProcessing(nDir = 300):
 
 
 #From Nx128x16 matrix to midi file
-def PolyBarsToMIDI(Bars, Velocity=False, title='reconstructed', Instrument=None, ticks_per_beat=480):
-    mid = mido.MidiFile(ticks_per_beat=ticks_per_beat)
-    
-    # Add a tempo track (track 0) - global tempo for all instruments
-    tempo_track = mido.MidiTrack()
-    mid.tracks.append(tempo_track)
-    tempo_track.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(120), time=0))
-    tempo_track.append(mido.MetaMessage('time_signature', numerator=4, denominator=4, time=0))
-    tempo_track.append(mido.MetaMessage('end_of_track', time=0))
-    
-    HowManyInstruments = Bars.shape[0]
-    num_positions = Bars.shape[2]
-    
-    # Calculate timing
-    ticks_per_bar = ticks_per_beat * 4
-    ticks_per_position = ticks_per_bar // 16
-    
-    # Process each instrument
-    for instrument_idx in range(HowManyInstruments):
-        track = mido.MidiTrack()
-        mid.tracks.append(track)
-        
-        # Set instrument program
-        if Instrument is not None and instrument_idx < len(Instrument):
-            program = Instrument[instrument_idx]
-        else:
-            program = np.random.choice(np.arange(1, 129))
-        
-        track.append(mido.Message('program_change', channel=instrument_idx, program=program, time=0))
-        
-        
-        ActiveNotes = {}
-        events = []  
-        
-        # Process each time position for this instrument
-        for pos in range(num_positions):
-            current_time = pos * ticks_per_position
-            
-            for note in range(128):
-                note_active = Bars[instrument_idx, note, pos] > 0
-                was_active = note in ActiveNotes
-                
-                if note_active and not was_active:
-                    # Note starts
-                    ActiveNotes[note] = pos
-                    if Velocity and Bars[instrument_idx, note, pos] > 1:
-                        velocity = int(Bars[instrument_idx, note, pos])
-                    else:
-                        velocity = 90
-                    events.append((current_time, 'note_on', note, velocity))
-                    
-                elif not note_active and was_active:
-                    # Note ends
-                    if Velocity and Bars[instrument_idx, note, ActiveNotes[note]] > 1:
-                        velocity = int(Bars[instrument_idx, note, ActiveNotes[note]])
-                    else:
-                        velocity = 90
-                    events.append((current_time, 'note_off', note, velocity))
-                    del ActiveNotes[note]
-        
-        # Handle any notes that are still active at the end
-        final_time = num_positions * ticks_per_position
-        for note in ActiveNotes:
-            if Velocity and Bars[instrument_idx, note, ActiveNotes[note]] > 1:
-                velocity = int(Bars[instrument_idx, note, ActiveNotes[note]])
-            else:
-                velocity = 90
-            events.append((final_time, 'note_off', note, velocity))
-        
-        # Sort events by time (note_on before note_off at same time)
-        events.sort(key=lambda x: (x[0], x[1] == 'note_off'))
-        
-        # Convert to MIDI messages with proper timing
-        last_time = 0
-        for abs_time, event_type, note, velocity in events:
-            delta_time = abs_time - last_time
-            
-            if event_type == 'note_on':
-                track.append(mido.Message('note_on', note=note, velocity=velocity, 
-                                        time=delta_time, channel=instrument_idx))
-            else:  # note_off
-                track.append(mido.Message('note_off', note=note, velocity=0, 
-                                        time=delta_time, channel=instrument_idx))
-            
-            last_time = abs_time
-        
-        # End of track
-        track.append(mido.MetaMessage('end_of_track', time=0))
-    
-    mid.save(f'{title}.mid')
+def PolyBarsToMIDI(Bars, Cond1D , title='reconstructed', ticks_per_beat=480):
+   mid = mido.MidiFile(ticks_per_beat=ticks_per_beat)
+
+   tempo = Cond1D[0]
+   Program = Cond1D[2:]
+   
+   # Add a tempo track (track 0) - global tempo for all instruments
+   tempo_track = mido.MidiTrack()
+   mid.tracks.append(tempo_track)
+   tempo_track.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(int(tempo)), time=0))
+   tempo_track.append(mido.MetaMessage('time_signature', numerator=4, denominator=4, time=0))
+   tempo_track.append(mido.MetaMessage('end_of_track', time=0))
+   
+   HowManyInstruments = Bars.shape[0]
+   num_positions = Bars.shape[2]
+   
+   # Calculate timing
+   ticks_per_bar = ticks_per_beat * 4
+   ticks_per_position = ticks_per_bar // 16
+   
+   # Process each instrument
+   for Instr_IDX in range(HowManyInstruments):
+      track = mido.MidiTrack()
+      mid.tracks.append(track)
+      
+      # Set instrument program
+      if Program[Instr_IDX] == 130: 
+         track.append(mido.Message('program_change', channel=9, program=0, time=0))
+      else:
+         track.append(mido.Message('program_change', channel=Instr_IDX, program=Program[Instr_IDX], time=0))
+      
+      ActiveNotes = {}
+      events = []  
+      
+      # Process each time position for this instrument
+      for pos in range(num_positions):
+         current_time = pos * ticks_per_position
+         
+         for note in range(128):
+               note_active = Bars[Instr_IDX, note, pos] > 0
+               was_active = note in ActiveNotes
+               
+               if note_active and not was_active:
+                  # Note starts
+                  ActiveNotes[note] = pos
+                  velocity = 90
+                  events.append((current_time, 'note_on', note, velocity))
+                  
+               elif not note_active and was_active:
+                  # Note ends
+                  velocity = 90
+                  events.append((current_time, 'note_off', note, velocity))
+                  del ActiveNotes[note]
+      
+      # Handle any notes that are still active at the end
+      final_time = num_positions * ticks_per_position
+      for note in ActiveNotes:
+         velocity = 90
+         events.append((final_time, 'note_off', note, velocity))
+      
+      # Sort events by time (note_on before note_off at same time)
+      events.sort(key=lambda x: (x[0], x[1] == 'note_off'))
+      
+      # Convert to MIDI messages with proper timing
+      last_time = 0
+      for abs_time, event_type, note, velocity in events:
+         delta_time = abs_time - last_time
+         
+         if event_type == 'note_on':
+               track.append(mido.Message('note_on', note=note, velocity=velocity, 
+                                       time=delta_time, channel=Instr_IDX))
+         else:  # note_off
+               track.append(mido.Message('note_off', note=note, velocity=0, 
+                                       time=delta_time, channel=Instr_IDX))
+         
+         last_time = abs_time
+      
+      # End of track
+      track.append(mido.MetaMessage('end_of_track', time=0))
+   
+   mid.save(f'{title}.mid')

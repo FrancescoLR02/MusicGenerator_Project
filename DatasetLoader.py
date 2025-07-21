@@ -1,102 +1,106 @@
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, SubsetRandomSampler
 import pickle
 import numpy as np
 import gc
 
 from Preprocessing import *
 
+Monophonic = os.path.realpath('MonophonicDataset.pt')
+Polyphonic = os.path.realpath('PolyphonicDataset.pt')
+
+
+################################# DataLoader for the main project: Music Generator #################
+
 
 #Loading monophonic and polyphonic classes
 class MonophonicDataset(Dataset):
 
-   def __init__(self, Instruments, EightBars = False):
-      
-      DS = torch.load('Dataset_CP.pt', weights_only=False)
+   def __init__(self, Instruments):
+
+      DS = torch.load(Monophonic)
       self.Data = []
       self.Instruments = Instruments
-      self.EightBars = EightBars
 
       for inst in Instruments:
-         self.Data.extend(DS[inst])
+        self.Data.extend(DS[inst])
 
       del DS
       gc.collect()
 
-      
+
    def __len__(self):
       return len(self.Data)
 
    def __getitem__(self, idx):
 
-      if not self.EightBars:
-         PreviousBars = self.Data[idx]['Bars'][0].to_dense()
-         Bars = self.Data[idx]['Bars'][1].to_dense()
+      PreviousBars = self.Data[idx]['Bars'][0].to_dense()
+      Bars = self.Data[idx]['Bars'][1].to_dense()
 
-         prog = self.Data[idx]['Program']
-         tempo = self.Data[idx]['Tempo'][0]
+      prog = self.Data[idx]['Program']
+      tempo = self.Data[idx]['Tempo'][0]
 
-         Cond1D = torch.tensor([tempo, prog], dtype=torch.int, device=Bars.device)
-         return Bars, PreviousBars, Cond1D
-      
-      else:
-         EightDataset = EightBarsDataset(Dataset, Mono = True)
+      TEMPO_MIN, TEMPO_MAX = 60, 200
+      PROGRAM_MIN, PROGRAM_MAX = 1,
 
-         if len(self.Instruments) > 1:
-            raise ValueError('More than 1 instrument selected. Please, select only one')
-         
-         Bars = EightDataset[self.Instruments][idx]['Bars']
-         return Bars
-      
+      tempo_norm = (tempo - TEMPO_MIN) / (TEMPO_MAX - TEMPO_MIN)
+      prog_norm = (prog - PROGRAM_MIN) / (PROGRAM_MAX - PROGRAM_MIN)
+
+
+      Cond1D = torch.tensor([tempo_norm] + [prog_norm], dtype=torch.float, device=Bars.device)
+      return Bars, PreviousBars, Cond1D
+
+
 
 
 class PolyphonicDataset(Dataset):
 
-   def __init__(self, Genre, EightBars = False):
-      
-         DS = torch.load('PolyphonicDataset.pt', weights_only=False)
-         self.Data = []
-         self.Genre = Genre
-         self.EightBars = EightBars
+   def __init__(self):
 
-         for gen in Genre:
-            self.Data.extend(DS[gen])
+         DS = torch.load(Polyphonic, weights_only=False)
+         self.Data = []
+
+         self.Data.extend(DS)
 
          del DS
          gc.collect()
-      
+
    def __len__(self):
       return len(self.Data)
 
    def __getitem__(self, idx):
 
-      if not self.EightBars:
+      PreviousBars = self.Data[idx]['Bars'][0].to_dense()
+      Bars = self.Data[idx]['Bars'][1].to_dense()
 
-         PreviousBars = self.Data[idx]['Bars'][0].to_dense()
-         Bars = self.Data[idx]['Bars'][1].to_dense()
+      prog = self.Data[idx]['Program']
+      tempo = self.Data[idx]['Tempo']
+      genre = self.Data[idx]['Genre']
 
-         prog = self.Data[idx]['Program'][0]
-         tempo = self.Data[idx]['Tempo'][0]
 
-         TEMPO_MIN, TEMPO_MAX = 60, 200
-         PROGRAM_MIN, PROGRAM_MAX = 1, 128
+      TEMPO_MIN, TEMPO_MAX = 60, 200
+      PROGRAM_MIN, PROGRAM_MAX = 1, 130
+      GENRE_MIN, GENRE_MAX = 0, 9
 
-         tempo_norm = (tempo - TEMPO_MIN) / (TEMPO_MAX - TEMPO_MIN)
-         prog_norm = [(p - PROGRAM_MIN) / (PROGRAM_MAX - PROGRAM_MIN) for p in prog]
+      tempo_norm = (tempo - TEMPO_MIN) / (TEMPO_MAX - TEMPO_MIN)
+      prog_norm = [(p - PROGRAM_MIN) / (PROGRAM_MAX - PROGRAM_MIN) for p in prog]
+      genre_norm = (genre - GENRE_MIN) / (GENRE_MAX - GENRE_MIN)
 
-         Cond1D = torch.tensor([tempo_norm] + prog_norm, dtype=torch.float, device=Bars.device)
-         return Bars, PreviousBars, Cond1D
-      
-      else:
-         EightDataset = EightBarsDataset(self.Data, Mono = False)
 
-         if len(self.Genre) > 1:
-            raise ValueError('More than 1 genre selected. Please, select only one')
-         
-         Bars = EightDataset[self.Genre][idx]['Bars']
-         return Bars
+      Cond1D = torch.tensor([tempo_norm, genre_norm] + prog_norm, dtype=torch.float, device=Bars.device)
+      return Bars, PreviousBars, Cond1D
+   
+
+#Allow to load a minibatch of smaller size. USed in the Polyphonic where there are too many bars (100.000)
+def getDataloader(dataset, batch_size, num_batches):
+   subset_size = batch_size * num_batches
+   indices = np.random.choice(len(dataset), size=subset_size, replace=False)
+   sampler = SubsetRandomSampler(indices)
+   return DataLoader(dataset, batch_size=batch_size, sampler=sampler, drop_last=True)
 
    
+
+
 
 
 ######################### GENRE RECOGNITION USING CNN ###########################
