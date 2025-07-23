@@ -52,15 +52,7 @@ GM_INSTRUMENTS = {
     39: "Synth Bass 1",
     40: "Synth Bass 2",
     
-    # Strings 
-    41: "Violin",
-    42: "Viola",
-    43: "Cello",
-    44: "Contrabass",
-    45: "Tremolo Strings",
-    46: "Pizzicato Strings",
-    47: "Orchestral Strings",
-    48: "Timpani",
+
     
     # Ensemble 
     49: "String Ensemble 1",
