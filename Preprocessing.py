@@ -5,6 +5,7 @@ from tqdm import tqdm
 from scipy import sparse
 import torch
 from collections import defaultdict
+import matplotlib.pyplot as plt
 import gc
 
 from pympler import asizeof
@@ -401,6 +402,11 @@ def PreProcessing(nDir = 300, Velocity = False):
 
 
 
+
+
+#FROM BINARY TENSOR TO MIDI
+
+
 def MonoBarsToMIDI(Bars, title='reconstructed', Instrument=None, ticks_per_beat=480):
    mid = mido.MidiFile(ticks_per_beat=ticks_per_beat)
    track = mido.MidiTrack()
@@ -467,3 +473,56 @@ def MonoBarsToMIDI(Bars, title='reconstructed', Instrument=None, ticks_per_beat=
    mid.save(f'{title}.mid')
 
 
+
+#VISUALIZATION FUNCTIONS
+
+def NoteDensity(midi_tensor):
+   if np.shape(midi_tensor)[0] == 4:  
+      density_per_instrument = np.mean(np.sum(midi_tensor, axis=2), axis=1)
+      total_density = np.mean(np.sum(midi_tensor, axis=(0,2)))
+   else:  # monophonic
+      print('ok')
+      total_density = np.mean(np.sum(midi_tensor, axis=1))
+   return density_per_instrument, total_density
+
+
+def PitchRange(midi_tensor):
+   active_pitches = np.where(np.sum(midi_tensor, axis=-1) > 0)
+   if len(active_pitches[0]) > 0:
+      min_pitch = np.min(active_pitches[-1])  
+      max_pitch = np.max(active_pitches[-1])
+      pitch_range = max_pitch - min_pitch
+   else:
+      min_pitch = max_pitch = pitch_range = 0
+   return min_pitch, max_pitch, pitch_range
+
+
+
+
+def CompareDistributions(generated_samples, real_samples):
+   # Compare simple statistics
+   gen_densities = [NoteDensity(s)[1] for s in generated_samples]
+   real_densities = [NoteDensity(r)[1] for r in real_samples]
+   
+   plt.figure(figsize=(5, 4))
+   plt.hist(gen_densities, alpha=0.6, label='Generated bars', bins=50, zorder = 100, density=True, color='#2ca02c')
+   plt.hist(real_densities, alpha=0.6, label='Real bars', bins=50, zorder = 100, density=True, color='#d62728')
+   plt.xlabel('Note Density')
+   plt.ylabel('Density')
+   plt.grid(alpha = 0.4)
+   plt.legend()
+   plt.tight_layout()
+   plt.savefig('Images/NoteDensity.pdf')
+   
+   gen_ranges = [PitchRange(s)[2] for s in generated_samples]
+   real_ranges = [PitchRange(s)[2] for s in real_samples]
+   
+   plt.figure(figsize=(5, 4))
+   plt.hist(gen_ranges, alpha=0.6, label='Generated bars', bins=50, zorder = 100, density=True, color='#2ca02c')
+   plt.hist(real_ranges, alpha=0.6, label='Real bars', bins=50, zorder = 100, density=True , color='#d62728')
+   plt.xlabel('Pitch Range')
+   plt.ylabel('Density')
+   plt.grid(alpha = 0.4)
+   plt.legend()
+   plt.tight_layout()
+   plt.savefig('Images/PitchDensity.pdf')
