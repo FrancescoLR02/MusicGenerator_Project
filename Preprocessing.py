@@ -7,6 +7,8 @@ import torch
 from collections import defaultdict
 import matplotlib.pyplot as plt
 import gc
+import hashlib
+from collections import Counter
 
 from pympler import asizeof
 
@@ -404,8 +406,7 @@ def PreProcessing(nDir = 300, Velocity = False):
 
 
 
-#FROM BINARY TENSOR TO MIDI
-
+#####################################FROM BINARY TENSOR TO MIDI
 
 def MonoBarsToMIDI(Bars, title='reconstructed', Instrument=None, ticks_per_beat=480):
    mid = mido.MidiFile(ticks_per_beat=ticks_per_beat)
@@ -474,8 +475,9 @@ def MonoBarsToMIDI(Bars, title='reconstructed', Instrument=None, ticks_per_beat=
 
 
 
-#VISUALIZATION FUNCTIONS
+###################################VISUALIZATION FUNCTIONS
 
+#Compute the density of the notes in every generaed bars (indeependent on the instrument)
 def NoteDensity(midi_tensor):
    if np.shape(midi_tensor)[0] == 4:  
       density_per_instrument = np.mean(np.sum(midi_tensor, axis=2), axis=1)
@@ -485,7 +487,7 @@ def NoteDensity(midi_tensor):
       total_density = np.mean(np.sum(midi_tensor, axis=1))
    return density_per_instrument, total_density
 
-
+#Computes the maximum range of the pitch 
 def PitchRange(midi_tensor):
    active_pitches = np.where(np.sum(midi_tensor, axis=-1) > 0)
    if len(active_pitches[0]) > 0:
@@ -498,7 +500,7 @@ def PitchRange(midi_tensor):
 
 
 
-
+#Compare the distributions of the real and fake bars
 def CompareDistributions(generated_samples, real_samples):
    # Compare simple statistics
    gen_densities = [NoteDensity(s)[1] for s in generated_samples]
@@ -518,11 +520,48 @@ def CompareDistributions(generated_samples, real_samples):
    real_ranges = [PitchRange(s)[2] for s in real_samples]
    
    plt.figure(figsize=(5, 4))
-   plt.hist(gen_ranges, alpha=0.6, label='Generated bars', bins=50, zorder = 100, density=True, color='#2ca02c')
-   plt.hist(real_ranges, alpha=0.6, label='Real bars', bins=50, zorder = 100, density=True , color='#d62728')
+   plt.hist(gen_ranges, alpha=0.6, label='Generated bars', bins=50, zorder = 100, density=True, color='#6a0dad')
+   plt.hist(real_ranges, alpha=0.8, label='Real bars', bins=50, zorder = 100, density=True , color='#ffb347')
    plt.xlabel('Pitch Range')
    plt.ylabel('Density')
+   plt.xlim(-10, 140)
    plt.grid(alpha = 0.4)
    plt.legend()
    plt.tight_layout()
    plt.savefig('Images/PitchDensity.pdf')
+
+
+
+
+##############################################SHANNON ENTROPY
+def BarToString(midi_tensor):
+
+   # Flatten the tensor and convert to string
+   flat = midi_tensor.flatten()
+    
+   # Convert to string (you could also use hash for memory efficiency)
+   return ''.join(map(str, flat.astype(int)))
+
+def BarToHash(midi_tensor):
+
+    bar_string = BarToString(midi_tensor)
+    return hashlib.md5(bar_string.encode()).hexdigest()
+
+def CalculateBarEntropy(generated_samples):
+
+   # Convert each bar to a hash 
+   bar_hashes = [BarToHash(sample) for sample in generated_samples]
+   # Count occurrences of each unique bar
+   BarCounts = Counter(bar_hashes)
+   total_bars = len(generated_samples)
+   UniqueBars = len(BarCounts)
+   
+   Prob = np.array(list(BarCounts.values())) / total_bars
+   
+   # Compute shannene entropy
+   Entropy = -np.sum(Prob * np.log2(Prob + 1e-10))
+   
+   # Calculate repetition ratio (fraction of bars that are not unique)
+   RepetitionRatio = (total_bars - UniqueBars) / total_bars
+   
+   return Entropy, RepetitionRatio
